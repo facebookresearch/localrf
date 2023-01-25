@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bootstrap Example</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+  <style>
+    /* Add a gray background color and some padding to the footer */
+    footer {
+      background-color: #f2f2f2;
+      padding: 25px;
+    }
+
+    .carousel-inner img {
+      width: 100%; /* Set width to 100% */
+      min-height: 200px;
+    }
+
+    /* Hide the carousel text when the screen is less than 600 pixels wide */
+    @media (max-width: 600px) {
+      .carousel-caption {
+        display: none; 
+      }
+    }
+  </style>
+</head>
+<body>
+
+<p id="p1">0: bear</p>
+
+
+<div class="container text-center">    
+  <br>   
+  <div class="row">
+    <div class="col-sm-4">
+      <video id="input" height="200" autoplay loop muted>
+      <source src="videos_old/bear_input.mp4" type="video/mp4">
+      </video>
+      <p>Input</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-4"> 
+      <video id="training_rgb_static" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_rgb_static.mp4" type="video/mp4">
+      </video>
+      <p>Training RGB - Static</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="training_rgb_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_rgb_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Training RGB - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="training_rgb" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_rgb.mp4" type="video/mp4">
+      </video>
+      <p>Training RGB</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4"> 
+      <video id="training_depth_static" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_depth_static.mp4" type="video/mp4">
+      </video>
+      <p>Training Depth - Static</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="training_depth_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_depth_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Training Depth - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="training_depth" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_depth.mp4" type="video/mp4">
+      </video>
+      <p>Training Depth</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4"> 
+    </div>
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="training_blending_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_training_blending_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Training Blending</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-4"> 
+      <video id="rendering_rgb_static" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_rgb_static.mp4" type="video/mp4">
+      </video>
+      <p>Rendering RGB - Static</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="rendering_rgb_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_rgb_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Rendering RGB - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="rendering_rgb" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_rgb.mp4" type="video/mp4">
+      </video>
+      <p>Rendering RGB</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4"> 
+      <video id="rendering_depth_static" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_depth_static.mp4" type="video/mp4">
+      </video>
+      <p>Rendering Depth - Static</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="rendering_depth_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_depth_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Rendering Depth - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="rendering_depth" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_depth.mp4" type="video/mp4">
+      </video>
+      <p>Rendering Depth</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4"> 
+    </div>
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="rendering_blending_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_rendering_blending_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Rendering Blending</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixView_rgb_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixView_rgb_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Fix View RGB - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixView_rgb" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixView_rgb.mp4" type="video/mp4">
+      </video>
+      <p>Fix View RGB</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixView_depth_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixView_depth_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Fix View Depth - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixView_depth" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixView_depth.mp4" type="video/mp4">
+      </video>
+      <p>Fix View Depth</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4"> 
+    </div>
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixView_blending_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixView_blending_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Fix View Blending</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixTime_rgb_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixTime_rgb_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Fix Time RGB - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixTime_rgb" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixTime_rgb.mp4" type="video/mp4">
+      </video>
+      <p>Fix Time RGB</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixTime_depth_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixTime_depth_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Fix Time Depth - Dynamic</p>
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixTime_depth" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixTime_depth.mp4" type="video/mp4">
+      </video>
+      <p>Fix Time Depth</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-4"> 
+    </div>
+    <div class="col-sm-4">
+    </div>
+    <div class="col-sm-4"> 
+      <video id="fixTime_blending_dynamic" height="200" autoplay loop muted>
+      <source src="videos_old/bear_fixTime_blending_dynamic.mp4" type="video/mp4">
+      </video>
+      <p>Fix Time Blending</p>
+    </div>
+  </div>
+
+<script>
+var sq = ['bear', 'blackswan', 'bmx-bumps', 'bmx-trees', 'boat', 'breakdance', 'breakdance-flare', 'bus', 'camel', 'car-roundabout', 'car-shadow', 'car-turn', 'cows', 'dance-jump', 'dance-twirl', 'dog', 'dog-agility', 'drift-chicane', 'drift-straight', 'drift-turn', 'elephant', 'flamingo', 'goat', 'hike', 'hockey', 'horsejump-high', 'horsejump-low', 'kite-surf', 'kite-walk', 'libby', 'lucia', 'mallard-fly', 'mallard-water', 'motocross-bumps', 'motocross-jump', 'motorbike', 'paragliding', 'paragliding-launch', 'parkour', 'rhino', 'rollerblade', 'scooter-black', 'scooter-gray', 'soapbox', 'soccerball', 'stroller', 'surf', 'swing', 'tennis', 'train'];
+// var sq = ['bear'];
+var i = 0;
+document.addEventListener('keydown', function(event) {
+    if (event.keyCode == 37 && i >= 1) {
+      i = i - 1;
+    }
+    else if (event.keyCode == 39 && i < sq.length-1) {
+      i = i + 1;
+    }
+    document.getElementById("p1").innerHTML = i.toString()+': '+sq[i];
+
+    var video = document.getElementById("input");
+    video.src = 'videos_old/'+sq[i]+'_input.mp4';
+    video.play();
+
+    var video = document.getElementById("training_rgb_static");
+    video.src = 'videos_old/'+sq[i]+'_training_rgb_static.mp4';
+    video.play();
+
+    var video = document.getElementById("training_rgb_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_training_rgb_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("training_rgb");
+    video.src = 'videos_old/'+sq[i]+'_training_rgb.mp4';
+    video.play();
+
+    var video = document.getElementById("training_depth_static");
+    video.src = 'videos_old/'+sq[i]+'_training_depth_static.mp4';
+    video.play();
+
+    var video = document.getElementById("training_depth_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_training_depth_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("training_depth");
+    video.src = 'videos_old/'+sq[i]+'_training_depth.mp4';
+    video.play();
+
+    var video = document.getElementById("training_blending_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_training_blending_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("rendering_rgb_static");
+    video.src = 'videos_old/'+sq[i]+'_rendering_rgb_static.mp4';
+    video.play();
+
+    var video = document.getElementById("rendering_rgb_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_rendering_rgb_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("rendering_rgb");
+    video.src = 'videos_old/'+sq[i]+'_rendering_rgb.mp4';
+
+    var video = document.getElementById("rendering_depth_static");
+    video.src = 'videos_old/'+sq[i]+'_rendering_depth_static.mp4';
+    video.play();
+
+    var video = document.getElementById("rendering_depth_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_rendering_depth_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("rendering_depth");
+    video.src = 'videos_old/'+sq[i]+'_rendering_depth.mp4';
+    video.play();
+
+    var video = document.getElementById("rendering_blending_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_rendering_blending_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("fixView_rgb_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_fixView_rgb_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("fixView_rgb");
+    video.src = 'videos_old/'+sq[i]+'_fixView_rgb.mp4';
+    video.play();
+
+    var video = document.getElementById("fixView_depth_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_fixView_depth_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("fixView_depth");
+    video.src = 'videos_old/'+sq[i]+'_fixView_depth.mp4';
+    video.play();
+
+    var video = document.getElementById("fixView_blending_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_fixView_blending_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("fixTime_rgb_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_fixTime_rgb_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("fixTime_rgb");
+    video.src = 'videos_old/'+sq[i]+'_fixTime_rgb.mp4';
+    video.play();
+
+    var video = document.getElementById("fixTime_depth_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_fixTime_depth_dynamic.mp4';
+    video.play();
+
+    var video = document.getElementById("fixTime_depth");
+    video.src = 'videos_old/'+sq[i]+'_fixTime_depth.mp4';
+    video.play();
+
+    var video = document.getElementById("fixTime_blending_dynamic");
+    video.src = 'videos_old/'+sq[i]+'_fixTime_blending_dynamic.mp4';
+    video.play();
+
+}, true);
+</script>
+
+<!-- <p id="example-1"></p>
+
+  <script>
+    var text = "";
+    // var sq = ['bear', 'blackswan', 'bmx-bumps', 'bmx-trees', 'boat', 'breakdance', 'breakdance-flare', 'bus', 'camel', 'car-roundabout', 'car-shadow', 'car-turn', 'cows', 'dance-jump', 'dance-twirl', 'dog', 'dog-agility', 'drift-chicane', 'drift-straight', 'drift-turn', 'elephant', 'flamingo', 'goat', 'hike', 'hockey', 'horsejump-high', 'horsejump-low', 'kite-surf', 'kite-walk', 'libby', 'lucia', 'mallard-fly', 'mallard-water', 'motocross-bumps', 'motocross-jump', 'motorbike', 'paragliding', 'paragliding-launch', 'parkour', 'rhino', 'rollerblade', 'scooter-black', 'scooter-gray', 'soapbox', 'soccerball', 'stroller', 'surf', 'swing', 'tennis', 'train'];
+    var sq = ['bear'];
+    var i;
+    for (i = 0; i < sq.length; i++) {
+        text += '<div class="container text-center"><br><div class="row"><div class="col-sm-2"><video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_input.mp4" type="video/mp4"></video><p>'+sq[i]+'</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_training_rgb_static.mp4" type="video/mp4"></video><p>Training RGB</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_training_depth_static.mp4" type="video/mp4"></video><p>Training depth</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_render_path_poses.mp4" type="video/mp4"></video><p>Poses</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_rendering_rgb_static.mp4" type="video/mp4"></video><p>Rendering RGB</p></div> <div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_rendering_depth_static.mp4" type="video/mp4"></video><p>Rendering depth</p></div></div></div>';
+        // text += '<div class="container text-center"><br><div class="row"><div class="col-sm-2"><video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_input.mp4" type="video/mp4"></video><p>'+sq[i]+'</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_training_rgb_static.mp4" type="video/mp4"></video><p>Training RGB</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_training_depth_static.mp4" type="video/mp4"></video><p>Training depth</p></div><div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_rendering_rgb_static.mp4" type="video/mp4"></video><p>Rendering RGB</p></div> <div class="col-sm-2"> <video height="105" autoplay loop muted><source src="videos_old/'+sq[i]+'_rendering_depth_static.mp4" type="video/mp4"></video><p>Rendering depth</p></div></div></div>';
+      }
+    document.getElementById("example-1").innerHTML = text;
+</script> -->
+
+</body>
+</html>

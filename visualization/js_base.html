@@ -1,0 +1,17 @@
+<script>
+var sq = SCENES;
+var i = 0;
+document.addEventListener('keydown', function(event) {
+    if (event.keyCode == 37 && i >= 1) {
+      i = i - 1;
+    }
+    else if (event.keyCode == 39 && i < sq.length-1) {
+      i = i + 1;
+    }
+    document.getElementById("p1").innerHTML = i.toString()+': '+sq[i];
+
+    SWAPPING_CODE
+}, true);
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: meganerf # Name your pod here
+spec:
+  restartPolicy: Never
+  containers:
+  - name: meganerf # Name your container here
+    resources:
+      limits:
+        cpu: 16
+        memory: 64Gi
+        nvidia.com/gpu: 4
+    image: "dtr.thefacebook.com/ameuleman/meganerf:latest" # The docker image you just created
+    volumeMounts:
+    - name: uberlapse
+      mountPath: /mnt/uberlapse
+    command: ["/bin/bash", "-c"]
+    args: ["sleep 1000d"]
+  volumes:
+  - name: uberlapse
+    persistentVolumeClaim:
+      claimName: uberlapse
+  priorityClassName: high

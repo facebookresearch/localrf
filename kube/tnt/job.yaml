@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'uberlapse-selflarge'
+spec:
+  ttlSecondsAfterFinished: 60
+  completions: 15
+  parallelism: 15
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: uberlapse
+        resources:
+          limits:
+            cpu: 8
+            memory: 64Gi
+            nvidia.com/gpu: 1
+        image: "dtr.thefacebook.com/ameuleman/uberlapse:latest"
+        volumeMounts:
+        - name: uberlapse
+          mountPath: /mnt/uberlapse
+        command:
+          - "bash"
+          - "-c"
+          - |
+            cd /mnt/uberlapse/ameuleman
+            sudo mkdir -p /home/docker/.cache/torch/hub/checkpoints/
+            sudo chown docker /home/docker/.cache/torch/hub/checkpoints/ -R
+            cp checkpoints/vgg16-397923af.pth /home/docker/.cache/torch/hub/checkpoints/vgg16-397923af.pth
+            SCENES=(intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Ballroom advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)
+            python localTensoRF/train.py --config localTensoRF/configs/uberlapse.txt \
+            --datadir ${SCENES[$JOB_COMPLETION_INDEX]}/skip_4 --multiGPU 0 \
+            --fov 70 \
+            --expname selflarge \
+            --render_only 0 \
+            --optimize_focal 1 \
+            --n_init_frames 5 \
+            --with_GT_poses 0 \
+            --optimize_poses 1 \
+            --lr_poses_init 5e-4 \
+            --opasity_gamma 1 \
+            --loss_depth_weight_inital 1e-1 \
+            --loss_flow_weight_inital 1e1 \
+            --L1_weight_inital 1e-4 \
+            --subsequence 0 -1 \
+            --resize_h -1 \
+            --n_iters 30000 \
+            --upsamp_list 1000 2000 3000 4000 6000 \
+            --N_voxel_init 262144 \
+            --N_voxel_final 262144000 \
+            --n_overlap 30 \
+            --new_rf_init 0 \
+            --shadingMode MLP_Fea_late_view \
+            --fea_pe 3 \
+            --patch_d_tv_weight 0 \
+            --patch_batch_size 0 \
+            --patch_size 16 \
+            --distortion_loss_weight 0.0 \
+            --fea2denseAct softplus \
+            --add_frame_reset_rf_opt 1 \
+            --density_shift -5 \
+            --TV_weight_density 0 \
+            --TV_weight_app 0 \
+            --batch_size 4096 \
+            --add_frames_every 200 \
+            --max_drift 1.2 \
+            --n_max_frames 200 \
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+      priorityClassName: high

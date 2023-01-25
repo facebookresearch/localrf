@@ -1,0 +1,97 @@
+dataset_name = nvidia_pose
+datadir = parkour/skip_0
+#datadir = office/skip_0
+#datadir = office_gopro/skip_2
+#datadir = hike_07_08_gopro_2/skip_0
+#datadir = hike_07_08_gopro_3/skip_3
+#datadir = hike_07_08_gopro_4/skip_3
+datadir = ours/uw2/skip_0
+#datadir = photoreal/fox
+expname = poseopt_vis # _opasity_gamma07-double
+basedir = data
+
+render_only = 0
+
+render_multiple_rf = 0
+expname_list = [hike_07_08_gopro_2_20/002_u, hike_07_08_gopro_2_20/003_u, hike_07_08_gopro_2_20/004_u, hike_07_08_gopro_2_20/005_u]
+
+## patch-based TV
+patch_size = 16
+patch_batch_size = 0
+patch_d_tv_weight = 1e2
+
+## Regularization
+opasity_gamma = 1
+loss_depth_weight_inital = 1e-1
+loss_flow_weight_inital = 1e1
+loss_sampleflow_weight_inital = 0.0
+lr_poses_init = 5e-4
+
+step_ratio = 0.5
+distortion_loss_weight = 0.01
+add_frame_reset_rf_opt = 1
+new_rf_init = 0
+blending_mode = image
+n_init_frames = 5
+n_max_frames = 200 # 60
+n_overlap = 30
+n_max_training_rfs = 2
+add_frames_every = 100 # 30
+max_drift = 1
+
+multiGPU = [1]
+subsequence = [0, -1]
+#multiGPU = [0, 1, 2, 3]
+#multiGPU = [4, 5, 6, 7]
+resize_h = 270 # 
+ray_type = contract
+#ray_type = ndc
+with_GT_poses = 0
+optimize_poses = 1
+optimize_focal = 1
+fov = 70
+pose_representation = 6D
+
+#n_iters = 25000  # 25000 * 1 (batch) * 12 (time)
+#n_iters = 15000
+n_iters = 20000
+batch_size = 4096
+
+# N_voxel_init = 262144 # 64**3  # 128:X, 16:O, 8:
+N_voxel_init = 32768
+#upsamp_list = [500, 1000, 1500] # 5500
+#upsamp_list = [1000, 2000, 3000, 4000, 5000]
+upsamp_list = [1000, 2000, 3000]
+#upsamp_list = [2000,3000,4000,5500]
+N_voxel_final = 16777216 # 256**3
+#N_voxel_final = 134217728 # 512**3
+#N_voxel_final = 262144000
+#N_voxel_final = 1073741824 # 1024**3
+
+N_vis = 3
+vis_every = 500000000
+vis_train_every = 10000
+progress_refresh_rate = 5000
+
+render_test = 1
+render_path = 1
+render_train = 1
+
+model_name = TensorVMSplit
+n_lamb_sigma = [16, 4, 4]
+n_lamb_sh = [48, 12, 12]
+
+shadingMode = MLP_Fea_woView
+#shadingMode = MLP_Fea_late_view
+#shadingMode = MLP_Fea_late_view_late_emb
+#shadingMode = MLP_Fea_late_view
+fea2denseAct = softplus
+
+view_pe = 0
+fea_pe = 3
+
+TV_weight_density = 0.0
+TV_weight_app = 0.0
+L1_weight_inital = 1e-4
+
+pose_consistancy_loss = 0

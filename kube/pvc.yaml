@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uberlapse-backup # Name your PVC here
+  namespace: compphoto
+  labels:
+    oncall: x3d_research
+spec:
+  accessModes:
+  - ReadWriteMany # Allow many nodes to access shared-cache simultaneously
+  resources:
+    requests:
+      storage: 2Ti
+  storageClassName: sea112-isiocures01-system

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: uberlapse # Name your pod here
+spec:
+  restartPolicy: Never
+  # nodeName: sea112-hpccdgx-node106
+  containers:
+  - name: uberlapse # Name your container here
+    resources:
+      limits:
+        cpu: 16
+        memory: 64Gi
+        nvidia.com/gpu: 4
+    image: "dtr.thefacebook.com/ameuleman/uberlapse:latest" # The docker image you just created
+    volumeMounts:
+    - name: uberlapse
+      mountPath: /mnt/uberlapse
+    - name: uberlapse-backup
+      mountPath: /mnt/uberlapse-backup
+    command: ["/bin/bash", "-c"]
+    args: ["sleep 1000d"]
+  volumes:
+  - name: uberlapse
+    persistentVolumeClaim:
+      claimName: uberlapse
+  - name: uberlapse-backup
+    persistentVolumeClaim:
+      claimName: uberlapse-backup
+  priorityClassName: high

@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'uberlapse-fusta'
+spec:
+  ttlSecondsAfterFinished: 300
+  completions: 1
+  parallelism: 1
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: uberlapse
+        resources:
+          limits:
+            cpu: 8
+            memory: 256Gi
+            nvidia.com/gpu: 1
+        image: "dtr.thefacebook.com/ameuleman/uberlapse:latest"
+        volumeMounts:
+        - name: uberlapse
+          mountPath: /mnt/uberlapse
+        command:
+          - "bash"
+          - "-c"
+          - |
+            cd /mnt/uberlapse/ameuleman/comparison/FuSta-main
+            SCENES=(ours/uw1 ours/uw2 ours/pg ours/hike_07_08_gopro_4 ours/hike_09_26_7 ours/hike_1008_2 ours/hike_09_26_1 intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Ballroom advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)
+            SKIPS=(0 0 0 2 0 2 0 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4)
+            SCENE=${SCENES[$JOB_COMPLETION_INDEX]}
+            SKIP=${SKIPS[$JOB_COMPLETION_INDEX]}
+            SCENE_NAME=${SCENE}/skip_${SKIP}
+            cd CVPR2020CODE_yulunliu_modified
+            cd ./networks/correlation_package
+            export FORCE_CUDA="1";python setup.py install --user
+            cd ../resample2d_package
+            export FORCE_CUDA="1";python setup.py install --user
+            cd ../channelnorm_package
+            export FORCE_CUDA="1";python setup.py install --user
+            cd ../..
+            python main.py ../../../data/sequenced/${SCENE_NAME}/images ../../../data/logs_eval/fusta/${SCENE_NAME}/output_frames ../../../data/logs_eval/fusta/${SCENE_NAME}/output_warping_field
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+      priorityClassName: high

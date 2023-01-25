@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'uberlapse-train-meganerf2'
+spec:
+  ttlSecondsAfterFinished: 60
+  completions: 12
+  parallelism: 12
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: uberlapse
+        resources:
+          limits:
+            cpu: 6
+            memory: 96Gi
+            nvidia.com/gpu: 1
+        image: "dtr.thefacebook.com/ameuleman/meganerf:latest"
+        volumeMounts:
+        - name: uberlapse
+          mountPath: /mnt/uberlapse
+        command:
+          - "bash"
+          - "-c"
+          - |
+            cd /mnt/uberlapse/ameuleman
+            SCENES=(train/Ignatius train/Meetingroom train/Truck train/Barn train/Caterpillar train/Church train/Courthouse)
+            SKIPS=(4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4)
+            SCENE_INDEX=$((JOB_COMPLETION_INDEX/4))
+            SCENE=${SCENES[$SCENE_INDEX]}
+            SKIP=${SKIPS[$SCENE_INDEX]}
+            SCENE_NAME=${SCENE}/skip_${SKIP}
+            cd comparison/mega-nerf
+            CENTROID=$((JOB_COMPLETION_INDEX%4))
+            python mega_nerf/train.py --config_file configs/mega-nerf/quad.yaml --exp_name ../../data/logs_eval/meganerf/${SCENE_NAME}/exp-${CENTROID} --dataset_path ../../data/logs_eval/meganerf/${SCENE_NAME}  --chunk_paths ../../data/logs_eval/meganerf/${SCENE_NAME}/chunk-${CENTROID} --cluster_mask_path ../../data/logs_eval/meganerf/${SCENE_NAME}/masks/${CENTROID} \
+            --train_iterations 250000
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+      priorityClassName: high

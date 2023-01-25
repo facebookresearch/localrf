@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'uberlapse-prep'
+spec:
+  ttlSecondsAfterFinished: 60
+  completions: 15
+  parallelism: 15
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: uberlapse
+        resources:
+          limits:
+            cpu: 8
+            memory: 32Gi
+            nvidia.com/gpu: 1
+        image: "dtr.thefacebook.com/ameuleman/uberlapse:latest"
+        volumeMounts:
+        - name: uberlapse
+          mountPath: /mnt/uberlapse
+        command:
+          - "bash"
+          - "-c"
+          - |
+            cd /mnt/uberlapse/ameuleman
+            SCENES=(intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Ballroom advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)
+            SCENE=${SCENES[$JOB_COMPLETION_INDEX]}
+            SKIPS=(4 4 4 4 4 4 4 4 4 4 4 4 4 4 4)
+            SKIP=${SKIPS[$JOB_COMPLETION_INDEX]}
+            python preprocess_video.py --video_name $SCENE --scale 0.5 --multiGPU 0 --skip $SKIP --raft_scale 0.5
+            cd DPT
+            SCENE_NAME=${SCENE}/skip_${SKIP}
+            python run_monodepth.py --input_path ../data/sequenced/${SCENE_NAME}/images \
+            --output_path ../data/sequenced/${SCENE_NAME}/depth --model_type dpt_large
+            cd ../
+            ffmpeg -y -framerate 30 -pattern_type glob -i "data/sequenced/${SCENE_NAME}/images/*.jpg" -c:v libx264 -pix_fmt yuv420p data/sequenced/${SCENE_NAME}/in.mp4
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+      priorityClassName: high

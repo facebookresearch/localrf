@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'uberlapse-train-barf'
+spec:
+  ttlSecondsAfterFinished: 60
+  completions: 15
+  parallelism: 15
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: uberlapse
+        resources:
+          limits:
+            cpu: 4
+            memory: 32Gi
+            nvidia.com/gpu: 1
+        image: "dtr.thefacebook.com/ameuleman/uberlapse:latest"
+        volumeMounts:
+        - name: uberlapse
+          mountPath: /mnt/uberlapse
+        command:
+          - "bash"
+          - "-c"
+          - |
+            cd /mnt/uberlapse/ameuleman
+            SCENES=(intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Ballroom advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)
+            SCENE=${SCENES[$JOB_COMPLETION_INDEX]}
+            SKIPS=(4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 3 3 3)
+            SKIP=${SKIPS[$JOB_COMPLETION_INDEX]}
+            SCENE_NAME=${SCENE}/skip_${SKIP}
+            sudo mkdir -p /home/docker/.cache/torch/hub/checkpoints/
+            sudo chown docker /home/docker/.cache/torch/hub/checkpoints/ -R
+            cp checkpoints/vgg16-397923af.pth /home/docker/.cache/torch/hub/checkpoints/vgg16-397923af.pth
+            cp checkpoints/vgg.pth /home/docker/.cache/torch/hub/checkpoints/vgg.pth
+            cd comparison/bundle-adjusting-NeRF
+            # python train.py --output_root=../../data/logs_eval/barf --group="" --model=barf --yaml=barf_iphone --name=${SCENE_NAME} --data.root=../../data/sequenced --data.scene=${SCENE_NAME} --barf_c2f=[0.1,0.5]
+            python evaluate.py --output_root=../../data/logs_eval/barf --group="" --model=barf --yaml=barf_iphone --name=${SCENE_NAME} --data.root=../../data/sequenced --data.scene=${SCENE_NAME} --data.val_sub= --resume
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+      priorityClassName: high

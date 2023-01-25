@@ -1,0 +1,113 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"batch/v1","kind":"Job","metadata":{"annotations":{},"name":"uberlapse-noprogfast","namespace":"compphoto"},"spec":{"completionMode":"Indexed","completions":7,"parallelism":7,"template":{"spec":{"containers":[{"command":["bash","-c","cd /mnt/uberlapse/ameuleman\nsudo mkdir -p /home/docker/.cache/torch/hub/checkpoints/\nsudo chown docker /home/docker/.cache/torch/hub/checkpoints/ -R\ncp checkpoints/vgg16-397923af.pth /home/docker/.cache/torch/hub/checkpoints/vgg16-397923af.pth\nSCENES=(ours/uw1 ours/uw2 ours/pg ours/hike_07_08_gopro_4 ours/hike_09_26_7 ours/hike_1008_2 ours/hike_09_26_1 intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Ballroom advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)\nSKIPS=(0 0 0 2 0 2 0 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4)\nFOVS=(85 73 69 92 69 69 69 70 70 70 70 70 70 70 70 70 70 70 70 70 70 70)\nSCENE=${SCENES[$JOB_COMPLETION_INDEX]}\nSKIP=${SKIPS[$JOB_COMPLETION_INDEX]}\nSCENE_NAME=${SCENE}/skip_${SKIP}\npython localTensoRF/train.py --config localTensoRF/configs/uberlapse.txt \\\n--datadir ${SCENE_NAME} --multiGPU 0 \\\n--fov ${FOVS[$JOB_COMPLETION_INDEX]} \\\n--expname noprogfast \\\n--render_only 0 \\\n--optimize_focal 1 \\\n--n_init_frames 50000 \\\n--with_GT_poses 0 \\\n--optimize_poses 1 \\\n--lr_poses_init 3e-4 \\\n--opasity_gamma 1 \\\n--loss_depth_weight_inital 1e-1 \\\n--loss_flow_weight_inital 1e1 \\\n--L1_weight_inital 1e-4 \\\n--subsequence 0 -1 \\\n--resize_h -1 \\\n--n_iters 20000 \\\n--upsamp_list 1000 2000 3000 4000 6000 \\\n--N_voxel_init 262144 \\\n--N_voxel_final 262144000 \\\n--n_overlap 30 \\\n--new_rf_init 0 \\\n--shadingMode MLP_Fea_late_view \\\n--fea_pe 3 \\\n--patch_d_tv_weight 0 \\\n--patch_batch_size 0 \\\n--patch_size 16 \\\n--distortion_loss_weight 0.0 \\\n--fea2denseAct softplus \\\n--add_frame_reset_rf_opt 1 \\\n--density_shift -5 \\\n--TV_weight_density 0 \\\n--TV_weight_app 0 \\\n--batch_size 4096 \\\n--add_frames_every 200 \\\n--max_drift 1 \\\n--n_max_frames 10000 \\\n"],"image":"dtr.thefacebook.com/ameuleman/uberlapse:latest","name":"uberlapse","resources":{"limits":{"cpu":8,"memory":"128Gi","nvidia.com/gpu":1}},"volumeMounts":[{"mountPath":"/mnt/uberlapse","name":"uberlapse"}]}],"priorityClassName":"high","restartPolicy":"OnFailure","volumes":[{"name":"uberlapse","persistentVolumeClaim":{"claimName":"uberlapse"}}]}},"ttlSecondsAfterFinished":60}}
+    policies.kyverno.io/last-applied-patches: |
+      add-label.add-labels.kyverno.io: added /metadata/labels
+  creationTimestamp: "2022-11-07T06:19:11Z"
+  generation: 1
+  labels:
+    created-by: ameuleman
+    namespace: compphoto
+    service-account: ""
+  name: uberlapse-nolocfast
+  namespace: compphoto
+  resourceVersion: "410328624"
+  uid: 582f3c9b-ad35-4a29-aed6-117bbaed581d
+spec:
+  backoffLimit: 6
+  completionMode: Indexed
+  completions: 7
+  parallelism: 7
+  selector:
+    matchLabels:
+      controller-uid: 582f3c9b-ad35-4a29-aed6-117bbaed581d
+  suspend: false
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        controller-uid: 582f3c9b-ad35-4a29-aed6-117bbaed581d
+        job-name: uberlapse-noprogfast
+    spec:
+      containers:
+      - command:
+        - bash
+        - -c
+        - |
+          cd /mnt/uberlapse/ameuleman
+          sudo mkdir -p /home/docker/.cache/torch/hub/checkpoints/
+          sudo chown docker /home/docker/.cache/torch/hub/checkpoints/ -R
+          cp checkpoints/vgg16-397923af.pth /home/docker/.cache/torch/hub/checkpoints/vgg16-397923af.pth
+          SCENES=(ours/uw1 ours/uw2 ours/pg ours/hike_07_08_gopro_4 ours/hike_09_26_7 ours/hike_1008_2 ours/hike_09_26_1 intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Ballroom advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)
+          SKIPS=(0 0 0 2 0 2 0 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4)
+          FOVS=(85 73 69 92 69 69 69 70 70 70 70 70 70 70 70 70 70 70 70 70 70 70)
+          SCENE=${SCENES[$JOB_COMPLETION_INDEX]}
+          SKIP=${SKIPS[$JOB_COMPLETION_INDEX]}
+          SCENE_NAME=${SCENE}/skip_${SKIP}
+          python localTensoRF/train.py --config localTensoRF/configs/uberlapse.txt \
+          --datadir ${SCENE_NAME} --multiGPU 0 \
+          --fov ${FOVS[$JOB_COMPLETION_INDEX]} \
+          --expname nolocfast \
+          --render_only 0 \
+          --optimize_focal 1 \
+          --n_init_frames 5 \
+          --with_GT_poses 0 \
+          --optimize_poses 1 \
+          --lr_poses_init 3e-4 \
+          --opasity_gamma 1 \
+          --loss_depth_weight_inital 1e-1 \
+          --loss_flow_weight_inital 1e1 \
+          --L1_weight_inital 1e-4 \
+          --subsequence 0 -1 \
+          --resize_h -1 \
+          --n_iters 20000 \
+          --upsamp_list 1000 2000 3000 4000 6000 \
+          --N_voxel_init 262144 \
+          --N_voxel_final 262144000 \
+          --n_overlap 30 \
+          --new_rf_init 0 \
+          --shadingMode MLP_Fea_late_view \
+          --fea_pe 3 \
+          --patch_d_tv_weight 0 \
+          --patch_batch_size 0 \
+          --patch_size 16 \
+          --distortion_loss_weight 0.0 \
+          --fea2denseAct softplus \
+          --add_frame_reset_rf_opt 1 \
+          --density_shift -5 \
+          --TV_weight_density 0 \
+          --TV_weight_app 0 \
+          --batch_size 4096 \
+          --add_frames_every 200 \
+          --max_drift 1 \
+          --n_max_frames 10000 \
+        image: dtr.thefacebook.com/ameuleman/uberlapse:latest
+        imagePullPolicy: Always
+        name: uberlapse
+        resources:
+          limits:
+            cpu: "8"
+            memory: 128Gi
+            nvidia.com/gpu: "1"
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /mnt/uberlapse
+          name: uberlapse
+      dnsPolicy: ClusterFirst
+      priorityClassName: high
+      restartPolicy: OnFailure
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+  ttlSecondsAfterFinished: 60
+status:
+  active: 7
+  startTime: "2022-11-07T06:19:11Z"

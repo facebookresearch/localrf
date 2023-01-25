@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 'uberlapse-colmapngp'
+spec:
+  ttlSecondsAfterFinished: 60
+  completions: 15
+  parallelism: 15
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: uberlapse
+        resources:
+          limits:
+            cpu: 4
+            memory: 16Gi
+            nvidia.com/gpu: 1
+        image: "dtr.thefacebook.com/ameuleman/uberlapse:latest"
+        volumeMounts:
+        - name: uberlapse
+          mountPath: /mnt/uberlapse
+        command:
+          - "bash"
+          - "-c"
+          - |
+            cd /mnt/uberlapse/ameuleman
+            SCENES=(advanced/Ballroom intermediate/M60 intermediate/Panther intermediate/Playground intermediate/Train advanced/Auditorium advanced/Courtroom advanced/Museum train/Barn train/Caterpillar train/Church train/Courthouse train/Ignatius train/Meetingroom train/Truck)
+            SCENE=${SCENES[$JOB_COMPLETION_INDEX]}
+            SKIPS=(4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 3 3 3)
+            SKIP=${SKIPS[$JOB_COMPLETION_INDEX]}
+            sudo chown docker data/sequenced/${SCENE}/skip_${SKIP} -R
+            sudo strip --remove-section=.note.ABI-tag /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+            mkdir data/sequenced/${SCENE}/skip_${SKIP}/text
+            colmap model_converter --input_path data/sequenced/${SCENE}/skip_${SKIP}/sparse/0 --output_path data/sequenced/${SCENE}/skip_${SKIP}/text --output_type TXT
+            python colmap2nerf.py --images data/sequenced/${SCENE}/skip_${SKIP}/images --aabb_scale 1 --colmap_db data/sequenced/${SCENE}/skip_${SKIP}/database.db --text  data/sequenced/${SCENE}/skip_${SKIP}/text --out data/sequenced/${SCENE}/skip_${SKIP}/transforms.json
+      volumes:
+      - name: uberlapse
+        persistentVolumeClaim:
+          claimName: uberlapse
+      priorityClassName: high

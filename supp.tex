@@ -1,0 +1,33 @@
+\section{Algorithm}
+
+\SetKwComment{Comment}{/* }{ */}
+\SetKwFunction{opt}{optimize}
+\SetKwFunction{init}{initializeRF}
+
+\begin{algorithm}
+\caption{\textbf{Our optimization scheme.}}\label{alg:algo}
+$j \leftarrow 1$ \Comment*[r]{The first radiance fields index}
+$p \leftarrow 1$ \;
+$q \leftarrow 5$ \Comment*[r]{Start with the first
+five frames}
+$[R|t]_{p..q} \leftarrow \mathds{1} $ \Comment*[r]{Initialize poses as identity}
+$\theta_j \leftarrow$ \init$\left(\right)$ \Comment*[r]{Initialize the first local radiance field}
+\While{$q < P$}
+{
+    \While{$t_q < 1 \And q < P$}
+    {
+        $q \leftarrow q + 1$ \;
+        $[R|t]_{q} \leftarrow [R|t]_{q - 1}$  \Comment*[r]{Append a pose at the end of the trajectory}
+        \opt$\left([R|t]_{p..q}, \theta_j\right)$  \Comment*[r]{Optimize poses and radiance field}
+    }
+    \opt$\left([R|t]_{p..q}, \theta_j\right)$  \Comment*[r]{Refine poses and radiance field}
+    \If{$q < P$}
+    {
+        $j \leftarrow j + 1$ \;
+        $\theta_j \leftarrow$ \init$\left(\right)$ \Comment*[r]{Create a new local radiance field}
+        $\t_j \leftarrow t_q$ \Comment*[r]{Centered around the last pose}
+        $p \leftarrow q - 30$ \Comment*[r]{Stop considering the first frames}
+    }
+}
+\end{algorithm}
+

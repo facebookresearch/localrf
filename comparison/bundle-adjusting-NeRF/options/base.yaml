@@ -1,0 +1,58 @@
+# default
+
+group: 0_test                                               # name of experiment group
+name: debug                                                 # name of experiment run
+model:                                                      # type of model (must be specified from command line)
+yaml:                                                       # config file (must be specified from command line)
+seed: 0                                                     # seed number (for both numpy and pytorch)
+gpu: 0                                                      # GPU index number
+cpu: false                                                  # run only on CPU (not supported now)
+load:                                                       # load checkpoint from filename
+
+arch: {}                                                    # architectural options
+
+data:                                                       # data options
+    root:                                                   # root path to dataset
+    dataset:                                                # dataset name
+    image_size: [270,480]                                 # input image sizes [height,width]
+    num_workers: 8                                          # number of parallel workers for data loading
+    preload: false                                          # preload the entire dataset into the memory
+    augment: {}                                             # data augmentation (training only)
+        # rotate:                                           # random rotation
+        # brightness: # 0.2                                 # random brightness jitter
+        # contrast: # 0.2                                   # random contrast jitter
+        # saturation: # 0.2                                 # random saturation jitter
+        # hue: # 0.1                                        # random hue jitter
+        # hflip: # True                                     # random horizontal flip
+    center_crop:                                            # center crop the image by ratio
+    val_on_test: false                                      # validate on test set during training
+    train_sub:                                              # consider a subset of N training samples
+    val_sub:                                                # consider a subset of N validation samples
+
+loss_weight: {}                                             # loss weights (in log scale)
+
+optim:                                                      # optimization options
+    lr: 1.e-3                                               # learning rate (main)
+    lr_end:                                                 # terminal learning rate (only used with sched.type=ExponentialLR)
+    algo: Adam                                              # optimizer (see PyTorch doc)
+    sched: {}                                               # learning rate scheduling options
+        # type: StepLR                                      # scheduler (see PyTorch doc)
+        # steps:                                            # decay every N epochs
+        # gamma: 0.1                                        # decay rate (can be empty if lr_end were specified)
+
+batch_size: 16                                              # batch size
+max_epoch: 1000                                             # train to maximum number of epochs
+resume: false                                               # resume training (true for latest checkpoint, or number for specific epoch number)
+
+output_root: output                                         # root path for output files (checkpoints and results)
+tb:                                                         # TensorBoard options
+    num_images: [4,8]                                       # number of (tiled) images to visualize in TensorBoard
+visdom:                                                     # Visdom options
+    server: localhost                                       # server to host Visdom
+    port: 9000                                              # port number for Visdom
+
+freq:                                                       # periodic actions during training
+    scalar: 200                                             # log losses and scalar states (every N iterations)
+    vis: 1000                                               # visualize results (every N iterations)
+    val: 20000                                              # validate on val set (every N iterations)
+    ckpt: 50                                                # save checkpoint (every N epochs)

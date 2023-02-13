@@ -5,8 +5,35 @@ import torch
 import torchvision.transforms as T
 from PIL import Image
 import matplotlib.pyplot as plt
+from scipy.interpolate import UnivariateSpline
 
-from .camera import pts2px
+def pts2px(pts, f, center):
+    pts[..., 1] = -pts[..., 1]
+    pts[..., 2] = -pts[..., 2]
+    pts[..., 2] = torch.clip(pts[..., 2].clone(), min=1e-6)
+    return torch.stack(
+        [pts[..., 0] / pts[..., 2] * f + center[0], pts[..., 1] / pts[..., 2] * f + center[1]], 
+        dim=-1)
+
+def inverse_pose(pose):
+    pose_inv = torch.zeros_like(pose)
+    pose_inv[:, :3, :3] = torch.transpose(pose[:, :3, :3], 1, 2)
+    pose_inv[:, :3, 3] = -torch.bmm(pose_inv[:, :3, :3].clone(), pose[:, :3, 3:])[..., 0]
+    return pose_inv
+
+def get_cam2cams(cam2worlds, indices, offset):
+    idx = torch.clamp(indices + offset, 0, len(cam2worlds) - 1)
+    world2cam = inverse_pose(cam2worlds[idx])
+    cam2cams = torch.zeros_like(world2cam)
+    cam2cams[:, :3, :3] = torch.bmm(world2cam[:, :3, :3], cam2worlds[indices, :3, :3])
+    cam2cams[:, :3, 3] = torch.bmm(world2cam[:, :3, :3], cam2worlds[indices, :3, 3:])[..., 0]
+    cam2cams[:, :3, 3] += world2cam[:, :3, 3]
+    return cam2cams
+
+def get_fwd_bwd_cam2cams(cam2worlds, indices):
+    fwd_cam2cams = get_cam2cams(cam2worlds, indices, 1)
+    bwd_cam2cams = get_cam2cams(cam2worlds, indices, -1)
+    return fwd_cam2cams, bwd_cam2cams
 
 def get_pred_flow(pts, ij, cam2cams, focal, center):
     new_pts = torch.transpose(torch.bmm(cam2cams[:, :3, :3], torch.transpose(pts, 1, 2)), 1, 2)
@@ -354,3 +381,69 @@ def convert_sdf_samples_to_ply(
     ply_data = plyfile.PlyData([el_verts, el_faces])
     print("saving mesh to %s" % (ply_filename_out))
     ply_data.write(ply_filename_out)
+
+def sixD_to_mtx(r):
+    b1 = r[..., 0]
+    b1 = b1 / torch.norm(b1, dim=-1)[:, None]
+    b2 = r[..., 1] - torch.sum(b1 * r[..., 1], dim=-1)[:, None] * b1
+    b2 = b2 / torch.norm(b2, dim=-1)[:, None]
+    b3 = torch.cross(b1, b2)
+
+    return torch.stack([b1, b2, b3], dim=-1)
+
+
+def mtx_to_sixD(r):
+    return torch.stack([r[..., 0], r[..., 1]], dim=-1)
+
+def pose_weighted_sum(poses, weights):
+    poses[:, 0] = -poses[:, 0]
+    t = torch.sum(poses[:, :, 3] * weights[:, None], dim=0, keepdim=True)
+    z = torch.sum(poses[:, :, 2] * weights[:, None], dim=0, keepdim=True)
+    z /= torch.norm(z, dim=-1)[:, None]
+    y_ = torch.sum(poses[:, :, 1] * weights[:, None], dim=0, keepdim=True)
+    x = torch.cross(z, y_)
+    x /= torch.norm(x, dim=-1)[:, None]
+    y = torch.cross(x, z)
+
+    pose = torch.stack([x, y, z, t], -1)[0]
+    poses[:, 0] = -poses[:, 0]
+    pose[0] = -pose[0]
+
+    return pose
+
+def smooth_vec(vec, time, s):
+    smoothed = np.zeros_like(vec)
+    for i in range(vec.shape[1]):
+        spl = UnivariateSpline(time, vec[..., i])
+        spl.set_smoothing_factor(s)
+        smoothed[..., i] = spl(time)
+    return smoothed
+
+def smooth_poses_spline(poses, st=1, sr=1):
+    poses[:, 0] = -poses[:, 0]
+    posesnp = poses.cpu().numpy()
+    scale = 2e-2 / np.median(np.linalg.norm(posesnp[1:, :3, 3] - posesnp[:-1, :3, 3], axis=-1))
+    posesnp[:, :3, 3] *= scale
+    time = np.linspace(0, 1, len(posesnp))
+    
+    t = smooth_vec(posesnp[..., 3], time, st)
+    z = smooth_vec(posesnp[..., 2], time, sr)
+    z /= np.linalg.norm(z, axis=-1)[:, None]
+    y_ = smooth_vec(posesnp[..., 1], time, sr)
+    x = np.cross(z, y_)
+    x /= np.linalg.norm(x, axis=-1)[:, None]
+    y = np.cross(x, z)
+
+    smooth_posesnp = np.stack([x, y, z, t], -1)
+    poses[:, 0] = -poses[:, 0]
+    smooth_posesnp[:, 0] = -smooth_posesnp[:, 0]
+    smooth_posesnp[:, :3, 3] /= scale
+    return torch.tensor(smooth_posesnp.astype(np.float32)).to(poses)
+
+def upsample_poses_2x(poses):
+    upsampled_poses = [poses[0]]
+    for index in range(len(poses) - 1):
+        weights = torch.tensor([0.5, 0.5]).to(poses)
+        upsampled_poses.append(pose_weighted_sum(poses[index : index + 2], weights))
+        upsampled_poses.append(poses[index + 1])
+    return torch.stack(upsampled_poses, dim=0)

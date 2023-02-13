@@ -1,0 +1,12 @@
+certifi==2020.6.20
+cffi==1.14.2
+numpy==1.19.1
+olefile==0.46
+Pillow==7.2.0
+pycparser==2.20
+scikit-video==1.1.11
+scipy==1.5.2
+six==1.15.0
+torch==1.0.0
+torchvision==0.2.1
+opencv-python==3.4.8.29

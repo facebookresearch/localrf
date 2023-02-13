@@ -1,0 +1,5 @@
+val_scale_factor: 1
+no_bg_nerf: true
+appearance_dim: 0
+use_cascade: true
+layer_dim: 2048

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
+  <meta name="author" content="yulunliu">
+  <title>Hybrid Neural Fusion for Full-frame Video Stabilization</title>
+
+  <!-- CSS  -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="website/css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+  <link href="website/css/style.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+  <link href="website/css/font-awesome.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="website/css/flexslider.css" type="text/css" media="screen" />
+
+  <!--<meta property="og:image" content="http://gph.is/2oZQz8h" />-->
+</head>
+<body class="loading">
+  
+  <div class="navbar-fixed">
+
+    <nav class="grey darken-4" role="navigation">
+      <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo"></a>
+        <a href="#" data-activates="nav-mobile" class="button-collapse"><i class="material-icons">menu</i></a>
+        <ul class="left hide-on-med-and-down">
+          <li><a class="nav-item waves-effect waves-light" href="#home">Home</a></li>
+          <li><a class="nav-item waves-effect waves-light" href="#video">Overview Video</a></li>
+          <li><a class="nav-item waves-effect waves-light" href="#abstract">Abstract</a></li>
+          <li><a class="nav-item waves-effect waves-light" href="#paper">Paper</a></li>
+          <li><a class="nav-item waves-effect waves-light" href="#download">Download</a></li>
+          <li><a class="nav-item waves-effect waves-light" href="#results">Results</a></li>
+          <li><a class="nav-item waves-effect waves-light" href="#reference">References</a></li>
+        </ul>
+
+        
+      </div>
+    </nav>
+
+  </div>
+
+
+
+
+
+  <div class="section no-pad-bot" id="index-banner">
+    <div class="container scrollspy" id="home">
+
+      <h4 class="header center black-text">FuSta</h4>
+	  <h5 class="header center black-text">Hybrid Neural Fusion for Full-frame Video Stabilization</h5>
+	  <h6 class="header center black-text">ICCV 2021</h6>
+
+      <br>
+
+      <div class="row center">
+        <div class="col l3 m4 s12">
+          <div class="author"><a href="http://www.cmlab.csie.ntu.edu.tw/~yulunliu/" target="blank">Yu-Lun Liu<sup>1</sup></a></div>
+        </div>
+
+        <div class="col l2 m4 s12">
+          <div class="author"><a href="https://www.wslai.net/" target="blank">Wei-Sheng Lai<sup>2</sup></a></div>
+        </div>
+		
+        <div class="col l2 m4 s12">
+          <div class="author"><a href="https://faculty.ucmerced.edu/mhyang/" target="blank">Ming-Hsuan Yang<sup>2,4,5</sup></a></div>
+        </div>
+
+        <div class="col l2 m4 s12">
+          <div class="author"><a href="https://www.csie.ntu.edu.tw/~cyy/" target="blank">Yung-Yu Chuang<sup>1</sup></a></div>
+        </div>
+
+        <div class="col l3 m4 s12">
+          <div class="author"><a href="https://filebox.ece.vt.edu/~jbhuang/" target="blank">Jia-Bin Huang<sup>3</sup></a></div>
+        </div>
+        
+      </div>
+
+      <div class="row center">
+        <div class="col l3 m4 s12">
+          <div class="affiliation"><a href="https://www.ntu.edu.tw/" target="blank"><sup>1</sup>National Taiwan University</a></div>
+        </div>
+
+        <div class="col l2 m4 s12">
+          <div class="affiliation"><a href="https://ai.google/research" target="blank"><sup>2</sup>Google</a></div>
+        </div>
+
+        <div class="col l2 m4 s12">
+          <div class="affiliation"><a href="https://vt.edu/" target="blank"><sup>3</sup>Virginia Tech</a></div>
+        </div>
+
+        <div class="col l2 m4 s12">
+          <div class="affiliation"><a href="https://www.ucmerced.edu/" target="blank"><sup>4</sup>UC Merced</a></div>
+        </div>
+
+        <div class="col l3 m4 s12">
+          <div class="affiliation"><a href="https://www.yonsei.ac.kr/en_sc/index.jsp" target="blank"><sup>5</sup>Yonsei University</a></div>
+        </div>
+        
+      </div>
+
+    </div>
+  </div>
+  
+  <div id="container" class="cf">
+  <div class="flexslider">
+	  <ul class="slides">
+			<li data-thumb="website\slideshow\Regular_17.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Regular_17.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Regular_18.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Regular_18.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\QuickRotation_6.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\QuickRotation_6.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\QuickRotation_15.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\QuickRotation_15.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Zooming_9.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Zooming_9.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Zooming_4.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Zooming_4.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Parallax_0.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Parallax_0.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<!-- <li data-thumb="website\slideshow\Parallax_17.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Parallax_17.mp4" type="video/mp4">
+			  </video>
+			</li> -->
+			<li data-thumb="website\slideshow\Crowd_13.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Crowd_13.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Crowd_21.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Crowd_21.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Running_5.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Running_5.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Running_2.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Running_2.mp4" type="video/mp4">
+			  </video>
+			</li>
+			
+			<li data-thumb="website\slideshow\Selfie_30.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Selfie_30.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Selfie_7.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Selfie_7.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Selfie_11.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Selfie_11.mp4" type="video/mp4">
+			  </video>
+			</li>
+			<li data-thumb="website\slideshow\Selfie_18.jpg">
+			<video width="1000" onended="this.currentTime = 0; this.play();" controls autoplay muted>
+				<source src="website\slideshow\Selfie_18.mp4" type="video/mp4">
+			  </video>
+			</li>
+	  </ul>
+
+  </div>
+  
+  </div>
+  <!-- jQuery -->
+  <!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+  <script>window.jQuery || document.write('<script src="js/libs/jquery-1.7.min.js">\x3C/script>')</script> -->
+  
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+  <script>window.jQuery || '<script src="js/libs/jquery-1.7.min.js">\x3C/script async>'</script>
+  <!-- FlexSlider -->
+  <script defer src="website/js/jquery.flexslider.js"></script>
+
+  <script type="text/javascript">
+    $(function(){
+      SyntaxHighlighter.all();
+    });
+    $(window).load(function(){
+      $('.flexslider').flexslider({
+        animation: "slide",
+        controlNav: "thumbnails",
+        start: function(slider){
+          $('body').removeClass('loading');
+        }
+      });
+    });
+  </script>
+
+
+  <div class="container">
+
+    <!-- <div class="section">
+      <div class="row center">
+        <div class="col l12 m12 s12">
+          <img class="responsive-img" src="website/representative_image.jpg">
+        </div>
+      </div>
+    </div> -->
+
+    <br>
+	
+	
+    <div class="row section scrollspy" id="video">
+	<div class="title">Overview Video</div>
+	<br>
+	<center>
+	<iframe width="672" height="378" src="https://www.youtube.com/embed/N53jeS2atPc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+	</center>
+	<br>
+	<center>
+	<iframe width="672" height="378" src="https://www.youtube.com/embed/KO3sULs4hso" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+	</center>
+	<br>
+	<center>
+	<iframe width="672" height="378" src="https://www.youtube.com/embed/v5pOsQEOsyA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+	</center>
+    </div>
+
+    <div class="row section scrollspy" id="abstract">
+      <div class="title">Abstract</div>
+Existing video stabilization methods often generate visible distortion or require aggressive cropping of frame boundaries, resulting in smaller field of views. In this work, we present a frame synthesis algorithm to achieve full-frame video stabilization. We first estimate dense warp fields from neighboring frames and then synthesize the stabilized frame by fusing the warped contents. Our core technical novelty lies in the learning-based hybrid-space fusion that alleviates artifacts caused by optical flow inaccuracy and fast-moving objects. We validate the effectiveness of our method on the NUS, selfie, and DeepStab video datasets. Extensive experiment results demonstrate the merits of our approach over prior video stabilization methods.
+    </div>
+
+    
+    <div class="row section scrollspy" id="paper">
+      <div class="title">Papers</div>
+      <br>
+
+      <div class="row">
+      
+        <div class="col m6 s12 center">
+          <a href="https://arxiv.org/abs/2102.06205" target="_blank">
+            <img src="website/images/icon_pdf.png">
+          </a>
+          <br>
+          <a href="https://arxiv.org/abs/2102.06205" target="_blank">arXiv</a>
+        </div>
+
+        <div class="col m6 s12 center">
+          <a href="suppl_doc.pdf" target="_blank">
+            <img src="website/images/icon_pdf.png">
+          </a>
+          <br>
+          <a href="suppl_doc.pdf" target="_blank">Supplementary Material</a>
+        </div>
+      </div>
+
+    </div>
+
+
+    <div class="row">
+      <div class="subtitle">Citation</div>
+      <p>Yu-Lun Liu, Wei-Sheng Lai, Ming-Hsuan Yang, Yung-Yu Chuang, and Jia-Bin Huang, "Hybrid Neural Fusion for Full-frame Video Stabilization", ICCV, 2021</p>
+
+      <br>
+
+      <div class="subtitle">Bibtex</div>
+      <pre>
+@inproceedings{Liu-FuSta-2021,
+    title     = {Hybrid Neural Fusion for Full-frame Video Stabilization}, 
+    author    = {Liu, Yu-Lun and Lai, Wei-Sheng and Yang, Ming-Hsuan and Chuang, Yung-Yu and Huang, Jia-Bin}, 
+    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision}, 
+    year      = {2021}
+}
+</pre>
+    </div>
+
+
+
+    <div class="section row scrollspy" id="download">
+      <div class="title">Download</div>
+      <div class="row">
+	      
+	<div class="col m6 s12 center">
+          <a href="https://www.cmlab.csie.ntu.edu.tw/~yulunliu/FuSta/iccv21_poster.pdf" target="_blank">
+            <img src="website/images/icon_pdf.png">
+          </a>
+          <br>
+          <a href="https://www.cmlab.csie.ntu.edu.tw/~yulunliu/FuSta/iccv21_poster.pdf" target="_blank">Poster</a>
+        </div>
+	      
+	<div class="col m6 s12 center">
+          <a href="https://www.cmlab.csie.ntu.edu.tw/~yulunliu/FuSta/slides_mtk_25min.pptx" target="_blank">
+            <img src="website/images/icon_pptx.png">
+          </a>
+          <br>
+          <a href="https://www.cmlab.csie.ntu.edu.tw/~yulunliu/FuSta/slides_mtk_25min.pptx" target="_blank">Slides</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col m4 s12 center">
+          <a href="https://github.com/alex04072000/FuSta" target="_blank">
+            <img src="website/images/github.png">
+          </a>
+          <br>
+          <a href="https://github.com/alex04072000/FuSta" target="_blank">Code</a>
+        </div>
+
+        <div class="col m4 s12 center">
+          <a href="https://drive.google.com/file/d/1QpyrrSAs67CS8UKGDSDPHSaRbFnACZ0j/view?usp=sharing" target="_blank">
+            <img src="website/images/icon_zip.png">
+          </a>
+          <br>
+          <a href="https://drive.google.com/file/d/1QpyrrSAs67CS8UKGDSDPHSaRbFnACZ0j/view?usp=sharing" target="_blank">All video stabilization results (6.85 GB)</a>
+        </div>
+
+        <div class="col m4 s12 center">
+          <a href="https://drive.google.com/file/d/16197Fv11ICdjO_oG_QvNq9B3oDdASygS/view?usp=sharing" target="_blank">
+            <img src="website/images/icon_zip.png">
+          </a>
+          <br>
+          <a href="https://drive.google.com/file/d/16197Fv11ICdjO_oG_QvNq9B3oDdASygS/view?usp=sharing" target="_blank">Our view synthesis results on Tanks and Temples (9 MB)</a>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="section row scrollspy" id="results">
+      <div class="title">Results</div>
+      
+      <div class="row center">
+		<div class="col m3 s12 center">
+			<td><a href="website/HTML/pages/additional_comparisons.html"><div class="navunselected" onmouseover="this.className='navselected';" onmouseout="this.className='navunselected';"><img src="website/HTML/compressed_results/additional_comparisons/additional_comparisons.jpg" width="300"><br>Additional Comparisons</div></a></td>
+		</div>
+		<div class="col m3 s12 center">
+			<td><a href="website/HTML/pages/bonus_applications.html"><div class="navunselected" onmouseover="this.className='navselected';" onmouseout="this.className='navunselected';"><img src="website/HTML/compressed_results/bonus_applications.jpg" width="300"><br>Ablation studies & Bonus applications</div></a></td>
+		</div>
+		<div class="col m3 s12 center">
+			<td><a href="website/HTML/pages/video_completion.html"><div class="navunselected" onmouseover="this.className='navselected';" onmouseout="this.className='navunselected';"><img src="website/HTML/compressed_results/video_completion.jpg" width="300"><br>Comparisons to video completion</div></a></td>
+		</div>
+		<div class="col m3 s12 center">
+			<td><a href="website/HTML/pages/failure_cases.html"><div class="navunselected" onmouseover="this.className='navselected';" onmouseout="this.className='navunselected';"><img src="website/HTML/compressed_results/00140.png" width="300"><br>Failure cases</div></a></td>
+		</div>
+      </div>
+
+      <br>
+
+
+    </div>
+
+
+    <div class="row section scrollspy" id="reference">
+      <div class="title">References</div>
+      <ul>
+        <li>&bull; 
+          <a href="http://www.liushuaicheng.org/SIGGRAPH2013/index.htm" target="blank">Bundled Camera Paths for Video Stabilization</a>, SIGGRAPH, 2013.
+        </li>
+        <li>&bull; 
+          <a href="https://www.cc.gatech.edu/cpl/projects/videostabilization/" target="blank">Auto-Directed Video Stabilization with Robust L1 Optimal Camera Paths</a>, CVPR, 2011.
+        </li>
+        <li>&bull; 
+          <a href="https://github.com/cxjyxxme/deep-online-video-stabilization" target="blank">Deep Online Video Stabilization with Multi-Grid Warping Transformation Learning</a>, TIP, 2018.
+        </li>
+        <li>&bull; 
+          <a href="https://github.com/jinsc37/DIFRINT" target="blank">Deep Iterative Frame Interpolation for Full-frame Video Stabilization</a>, SIGGRAPH Asia, 2019.
+        </li>
+        <li>&bull; 
+          <a href="http://jiyang.fun/projects.html" target="blank">Learning Video Stabilization Using Optical Flow</a>, CVPR, 2020.
+        </li>
+        <li>&bull; 
+          <a href="http://jiyang.fun/projects.html" target="blank">Selfie Video Stabilization</a>, ECCV, 2018.
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <footer class="page-footer grey lighten-3">
+      <!--
+      <div class="row">
+        <div class="col l4 offset-l4 s12">
+          <script type="text/javascript" id="clustrmaps" src="//cdn.clustrmaps.com/map_v2.js?cl=ffffff&w=330&t=tt&d=fhGpuMgoLYXytRWhcIV-396rCSmJYtpAJdk3tTNbAnY"></script>
+        </div>
+      </div>
+    -->
+  </footer>
+
+
+  <!--  Scripts-->
+  <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+  <script src="js/materialize.js"></script>
+  <script src="js/init.js"></script>
+
+  </body>
+</html>

@@ -44,3 +44,4 @@ RUN /opt/conda/bin/python -m pip install --upgrade jax jaxlib==0.3.20+cuda11.cud
 RUN /opt/conda/bin/python -m pip install flax opencv-python Pillow tensorboard tensorflow gin-config 
 RUN /opt/conda/bin/python -m pip install dm_pix rawpy mediapy
 RUN /opt/conda/bin/python -m pip install --upgrade jax jaxlib==0.3.20+cuda11.cudnn82 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+RUN /opt/conda/bin/python -m pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_releases.html

@@ -48,55 +48,53 @@ def compute_fwdbwd_mask(fwd_flow, bwd_flow, alpha_1=0.05, alpha_2=0.5):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--video_name', default='intermediate/M60')
+    parser.add_argument('--input_folder', default='/data/videos')
+    parser.add_argument('--output_folder', default='/data/preprocessed')
     parser.add_argument('--save_format', default='jpg')
     parser.add_argument('--h', type=int, default=1080)
     parser.add_argument('--raft_h', type=int, default=540)
-    parser.add_argument('--multiGPU', type=int, default=[0], nargs='+')
-    parser.add_argument('--max_frames', type=int, default=1000)
-    parser.add_argument('--skip', type=int, default=4)
-    parser.add_argument('--raft_model', default='checkpoints/raft-things.pth', help="restore checkpoint")
-    parser.add_argument('--dpt_model', default='checkpoints/dpt_large-midas-2f21e586.pt')
-    parser.add_argument('--small', action='store_true', help='use small model')
-    parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
-    parser.add_argument('--alternate_corr', action='store_true', help='use efficent correlation implementation')
+    parser.add_argument('--device_ids', type=int, default=[0], nargs='+')
+    parser.add_argument('--raft_model', default='checkpoints/raft-things.pth', help="[RAFT] restore checkpoint")
+    parser.add_argument('--small', action='store_true', help='[RAFT] use small model')
+    parser.add_argument('--mixed_precision', action='store_true', help='[RAFT] use mixed precision')
+    parser.add_argument('--alternate_corr', action='store_true', help='[RAFT] use efficent correlation implementation')
     args = parser.parse_args()
 
     # Initialize optical flow model
-    raft_model = torch.nn.DataParallel(RAFT(args), device_ids=args.multiGPU)
+    raft_model = torch.nn.DataParallel(RAFT(args), device_ids=args.device_ids)
     raft_model.load_state_dict(torch.load(args.raft_model))
-    raft_model.module.to(f"cuda:{args.multiGPU[0]}")
+    raft_model.module.to(f"cuda:{args.device_ids[0]}")
     raft_model.eval()
 
     # Read and preprocess the video
-    print(f"Read data/videos/{args.video_name}.mp4")
-    cap = cv2.VideoCapture(f"data/videos/{args.video_name}.mp4")
-    save_folder = f"data/sequenced/{args.video_name}/skip_{args.skip}"
+    print(f"Read {args.input_folder}/{args.video_name}.mp4")
+    cap = cv2.VideoCapture(f"{args.input_folder}/{args.video_name}.mp4")
+    save_folder = f"{args.output_folder}/{args.video_name}"
     if not cap.isOpened():
-        input_files = sorted(os.listdir(f"data/sequenced/{args.video_name}/images"))
-        input_files = input_files[::(args.skip + 1)]
+        input_files = sorted(os.listdir(f"{args.output_folder}/{args.video_name}/images"))
     os.makedirs(f"{save_folder}/images", exist_ok=True)
     os.makedirs(f"{save_folder}/flow_ds", exist_ok=True)
     os.makedirs(f"{save_folder}/depth", exist_ok=True)
     os.makedirs(f"{save_folder}/flow_vis", exist_ok=True)
     prev_frame_torch = None
     pbar = tqdm()
-    for idx in range(args.max_frames):
+    idx = 0
+    ret = True
+    while ret:
         # Read and rescale frame
         if cap.isOpened():
             ret, frame = cap.read()
-            for _ in range(args.skip):
-                cap.read()
         else:
             ret = idx < len(input_files)
             if ret:
-                frame = cv2.imread(f"data/sequenced/{args.video_name}/images/{input_files[idx]}")
+                frame = cv2.imread(f"{args.output_folder}/{args.video_name}/images/{input_files[idx]}")
         if ret:
             scale = args.h / frame.shape[0]
             if scale != 1:
                 frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
             raft_scale = args.raft_h / frame.shape[0]
             ds_frame = cv2.resize(frame, None, fx=raft_scale, fy=raft_scale, interpolation=cv2.INTER_CUBIC)
-            frame_torch = torch.from_numpy(ds_frame[..., ::-1].copy()).permute(2, 0, 1).float()[None].to(f"cuda:{args.multiGPU[0]}")
+            frame_torch = torch.from_numpy(ds_frame[..., ::-1].copy()).permute(2, 0, 1).float()[None].to(f"cuda:{args.device_ids[0]}")
            
             # get optical flow
             if prev_frame_torch is not None:
@@ -113,13 +111,13 @@ if __name__ == '__main__':
             else:
                 fwd_flow = np.zeros(frame[..., :2].shape, dtype=np.float32)
                 bwd_flow = np.zeros(frame[..., :2].shape, dtype=np.float32)
-                mask_fwd = np.zeros(frame[..., 0].shape, dtype=np.bool)
-                mask_bwd = np.zeros(frame[..., 0].shape, dtype=np.bool)
+                mask_fwd = np.zeros(frame[..., 0].shape, dtype=bool)
+                mask_bwd = np.zeros(frame[..., 0].shape, dtype=bool)
 
             # Save the images and flow
             cv2.imwrite(f"{save_folder}/images/{idx:06d}.{args.save_format}", frame)
-            cv2.imwrite(f"{save_folder}/flow_ds/fwd_{idx:06d}.png", encode_flow(fwd_flow, mask_fwd))
-            cv2.imwrite(f"{save_folder}/flow_ds/bwd_{idx:06d}.png", encode_flow(bwd_flow, mask_bwd))
+            cv2.imwrite(f"{save_folder}/flow_ds/fwd_{idx:06d}.png", encode_flow(fwd_flow, mask_fwd), [cv2.IMWRITE_PNG_COMPRESSION, 3])
+            cv2.imwrite(f"{save_folder}/flow_ds/bwd_{idx:06d}.png", encode_flow(bwd_flow, mask_bwd), [cv2.IMWRITE_PNG_COMPRESSION, 3])
             cv2.imwrite(f"{save_folder}/flow_vis/fwd_{idx:06d}.jpg", flow_viz.flow_to_image(fwd_flow))
             cv2.imwrite(f"{save_folder}/flow_vis/bwd_{idx:06d}.jpg", flow_viz.flow_to_image(bwd_flow))
             idx += 1

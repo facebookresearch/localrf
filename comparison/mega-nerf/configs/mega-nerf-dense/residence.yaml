@@ -1,0 +1,3 @@
+ray_altitude_range: [30, 118]
+layer_dim: 2048
+bg_layer_dim: 2048

@@ -1,0 +1,6 @@
+_parent_: options/barf_llff.yaml
+
+data:                                                       # data options
+    dataset: iphone                                         # dataset name
+    scene: IMG_0239                                         # scene name
+    image_size: [360,640]                                   # input image sizes [height,width]

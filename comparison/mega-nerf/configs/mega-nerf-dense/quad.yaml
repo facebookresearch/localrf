@@ -1,0 +1,4 @@
+ray_altitude_range: [-55, 10]
+val_scale_factor: 1
+layer_dim: 2048
+bg_layer_dim: 2048

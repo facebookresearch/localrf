@@ -21,16 +21,17 @@ scenes = [
     # "train/Truck/skip_4",
 
     # "ours/uw1/skip_0",
-    "ours/uw2/skip_0",
-    "ours/pg/skip_0",
-    "ours/hike_07_08_gopro_4/skip_2",
+    "sequenced/ours/uw2/skip_0",
+    "sequenced/ours/pg/skip_0",
+    "sequenced/ours/hike_07_08_gopro_4/skip_2",
     # "ours/hike_09_26_7/skip_0",
-    "ours/hike_1008_2/skip_2", 
-    "ours/hike_09_26_1/skip_0",
+    "sequenced/ours/hike_1008_2/skip_2", 
+    "sequenced/ours/hike_09_26_1/skip_0",
 ]
 
 methods = [
     "mipnerf360",
+    "nerfacto",
     "barf",
     # "ours_colmap",
     "ours_self",
@@ -38,6 +39,7 @@ methods = [
 
 method_labels = [
     "Mip-NeRF360",
+    "Nerfacto",
     "BARF",
     # "Ours + colmap",
     "Ours",
@@ -45,8 +47,9 @@ method_labels = [
 
 colors = [
     "C3",
-    "C2",
     "C0",
+    "C2",
+    "C4",
 ]
 
 all_methods_framewise_psnrs = {}

@@ -9,15 +9,15 @@ from skimage.metrics import structural_similarity, peak_signal_noise_ratio
 from localTensoRF.utils.utils import rgb_lpips, rgb_ssim
 
 scenes = [
-    # "intermediate/M60/skip_4",
-    # "intermediate/Panther/skip_4",
-    # "intermediate/Train/skip_4",
-    # "advanced/Auditorium/skip_4",
-    # "advanced/Ballroom/skip_4",
-    # "advanced/Courtroom/skip_4",
-    # "advanced/Museum/skip_4",
-    # "train/Caterpillar/skip_4",
-    # "train/Church/skip_4",
+    "sequenced/intermediate/M60/skip_4",
+    "sequenced/intermediate/Panther/skip_4",
+    "sequenced/intermediate/Train/skip_4",
+    "sequenced/advanced/Auditorium/skip_4",
+    "sequenced/advanced/Ballroom/skip_4",
+    "sequenced/advanced/Courtroom/skip_4",
+    "sequenced/advanced/Museum/skip_4",
+    "sequenced/train/Caterpillar/skip_4",
+    "sequenced/train/Church/skip_4",
     # # "train/Courthouse/skip_4",
     # # "intermediate/Playground/skip_4",
     # # "train/Barn/skip_4",
@@ -25,16 +25,17 @@ scenes = [
     # # "train/Meetingroom/skip_4",
     # # "train/Truck/skip_4",
 
-    # "ours/uw1/skip_0",
-    "ours/uw2/skip_0",
-    "ours/pg/skip_0",
-    "ours/hike_07_08_gopro_4/skip_2",
-    # "ours/hike_09_26_7/skip_0",
-    "ours/hike_1008_2/skip_2", 
-    "ours/hike_09_26_1/skip_0",
+    # # "ours/uw1/skip_0",
+    # "ours/uw2/skip_0",
+    # "ours/pg/skip_0",
+    # "ours/hike_07_08_gopro_4/skip_2",
+    # # "ours/hike_09_26_7/skip_0",
+    # "ours/hike_1008_2/skip_2", 
+    # "ours/hike_09_26_1/skip_0",
 ]
 
 methods = [
+    "nerfacto",
     # "mipnerf360",
     # "npp",
     # "meganerf",
@@ -43,9 +44,9 @@ methods = [
     # "scnerf_colmap",
     # "ours_colmap",
     # "ours_colmapopt",
-    "ours_self",
-    "ours_noprog",
-    "ours_noloc",
+    # "ours_self",
+    # "ours_noprog",
+    # "ours_noloc",
 
 ]
 

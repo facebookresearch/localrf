@@ -1,0 +1,4 @@
+ray_altitude_range: [-55, 10]
+val_scale_factor: 1
+appearance_dim: 0
+cluster_2d: True

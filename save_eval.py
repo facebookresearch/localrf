@@ -5,27 +5,43 @@ import shutil
 import cv2
 import numpy as np
 from skimage.metrics import structural_similarity, peak_signal_noise_ratio
+import torch 
 
-from localTensoRF.utils.utils import rgb_lpips, rgb_ssim
+__LPIPS__ = {}
+
+def init_lpips(net_name, device):
+    assert net_name in ["alex", "vgg"]
+    import lpips
+
+    print(f"init_lpips: lpips_{net_name}")
+    return lpips.LPIPS(net=net_name, version="0.1").eval().to(device)
+
+
+def rgb_lpips(np_gt, np_im, net_name, device):
+    if net_name not in __LPIPS__:
+        __LPIPS__[net_name] = init_lpips(net_name, device)
+    gt = torch.from_numpy(np_gt).permute([2, 0, 1]).contiguous().to(device)
+    im = torch.from_numpy(np_im).permute([2, 0, 1]).contiguous().to(device)
+    return __LPIPS__[net_name](gt, im, normalize=True).item()
 
 scenes = [
-    "ours/uw1/skip_0",
-    "ours/uw2/skip_0",
-    "ours/pg/skip_0",
-    "ours/hike_07_08_gopro_4/skip_2",
-    "ours/hike_09_26_7/skip_0",
-    "ours/hike_1008_2/skip_2", 
-    "ours/hike_09_26_1/skip_0",
+    "sequenced/ours/uw1/skip_0",
+    "sequenced/ours/uw2/skip_0",
+    "sequenced/ours/pg/skip_0",
+    "sequenced/ours/hike_07_08_gopro_4/skip_2",
+    # "sequenced/ours/hike_09_26_7/skip_0",
+    "sequenced/ours/hike_1008_2/skip_2", 
+    "sequenced/ours/hike_09_26_1/skip_0",
 
-    # "intermediate/M60/skip_4",
-    # "intermediate/Panther/skip_4",
-    # "intermediate/Train/skip_4",
-    # "advanced/Auditorium/skip_4",
-    # "advanced/Ballroom/skip_4",
-    # "advanced/Courtroom/skip_4",
-    # "advanced/Museum/skip_4",
-    # "train/Caterpillar/skip_4",
-    # "train/Church/skip_4",
+    "sequenced/intermediate/M60/skip_4",
+    "sequenced/intermediate/Panther/skip_4",
+    "sequenced/intermediate/Train/skip_4",
+    "sequenced/advanced/Auditorium/skip_4",
+    "sequenced/advanced/Ballroom/skip_4",
+    "sequenced/advanced/Courtroom/skip_4",
+    "sequenced/advanced/Museum/skip_4",
+    "sequenced/train/Caterpillar/skip_4",
+    "sequenced/train/Church/skip_4",
     # # # "train/Courthouse/skip_4",
     # # # "intermediate/Playground/skip_4",
     # # # "train/Barn/skip_4",
@@ -40,15 +56,17 @@ methods = [
     # "meganerf",
     # "scnerf_colmap",
     # "ours_colmap",
-    "ours_self2",
+    # "ours_self2",
     # "ours_noprog",
     # "ours_noloc",
     # "ours_colmapopt",
     # "mipnerf360",
     # "barf",
+    "nerfacto"
 ]
 
 colmap_methods = [
+    "nerfacto",
     "mipnerf360",
     "npp",
     "barf_colmap",
@@ -75,8 +93,8 @@ for method in methods:
     msess = []
     for scene in scenes:
         print(f"****** Processing {scene} for {method}")
-        gt_dir = f"data/sequenced/{scene}"
-        res_dir = f"data/logs_eval/{method}"
+        gt_dir = f"/mnt/datassd/ameuleman/preprocessed/{scene}"
+        res_dir = f"/mnt/datassd/ameuleman/logs_eval/{method}"
 
         all_gt_paths = sorted(os.listdir(f"{gt_dir}/images"))
         all_gt_paths = [gt_path for gt_path in all_gt_paths if (int(os.path.splitext(gt_path)[0])%10) == 0]
@@ -131,6 +149,8 @@ for method in methods:
                 rgb = cv2.imread(f"data/logs/nolocfast/{scene}/rgb_maps/{os.path.splitext(gt_path)[0]}.png")
                 if rgb is None:
                     rgb = cv2.imread(f"data/logs/nolocfast/{scene}/rgb_maps/{gt_path}")
+            elif method == "nerfacto":
+                rgb = cv2.imread(f"/mnt/datassd/ameuleman/logs_eval/nerfacto/{scene}/test/{idx:05d}.png")
 
 
             if rgb is None:

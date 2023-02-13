@@ -5,21 +5,6 @@ import torch
 from kornia import create_meshgrid
 from torch import searchsorted
 
-
-# from utils import index_point_feature
-
-
-# def contract(pts):
-#     pts_norm = torch.abs(pts.clone())
-#     contract_mask = pts_norm > 1.0
-#     pts[contract_mask] = (2 - 1 / pts_norm[contract_mask]) * (
-#         pts[contract_mask] / pts_norm[contract_mask])
-
-# def contract(ray_pts):
-#     norm = ray_pts.clone().abs().amax(dim=-1, keepdim=True)
-#     outer_mask = norm[..., 0] > 1.0
-#     ray_pts[outer_mask] = ((2 - 1 / norm[outer_mask]) * (ray_pts[outer_mask] / norm[outer_mask])).clone()
-
 def contract(x):
     x_norm = torch.clamp(x.abs().amax(dim=-1, keepdim=True), 1e-6)
     z = torch.where(x_norm <= 1, x, ((2 * x_norm - 1) / (x_norm**2)) * x)
@@ -73,7 +58,7 @@ def get_ray_directions(H, W, focal, center=None):
     return directions
 
 
-def get_ray_directions_lean(i, j, focal, center, dist_coefs):
+def get_ray_directions_lean(i, j, focal, center):
     """
     get_ray_directions but returns only relevant rays
     Inputs:
@@ -82,21 +67,7 @@ def get_ray_directions_lean(i, j, focal, center, dist_coefs):
         directions: (b, 3), the direction of the rays in camera coordinate
     """
     i, j = i.float() + 0.5, j.float() + 0.5
-    # the direction here is without +0.5 pixel centering as calibration is not so accurate
-    # see https://github.com/bmild/nerf/issues/24
-    n = torch.stack([(i - center[0]) / center[0], (j - center[1]) / center[1]], -1)
-    # r = torch.norm(n, dim=-1)
-    # d = 1 + dist_coefs[0] * r ** 2 + dist_coefs[1] * r ** 4
-    # d = torch.stack([
-    #     d + dist_coefs[2] * (r + 2 * n[..., 0] ** 2) + dist_coefs[3] *  n[..., 0] *  n[..., 1], 
-    #     d + dist_coefs[2] * (r + 2 * n[..., 1] ** 2) + dist_coefs[3] *  n[..., 0] *  n[..., 1], 
-    #     ], -1)
-    # n_dist = d * n * center[None] + center[None]
-    # i_dist, j_dist = n_dist[..., 0], n_dist[..., 1]
-    d = 1 + dist_coefs[0].clone() * n ** 2 + dist_coefs[1].clone() * n ** 4
-    i_dist, j_dist = i * d[..., 0], j * d[..., 1]
-    directions = torch.stack([(i_dist - center[0]) / focal[0], -(j_dist - center[1]) / focal[1], -torch.ones_like(i)], -1)  # (b, 3)
-
+    directions = torch.stack([(i - center[0]) / focal, -(j - center[1]) / focal, -torch.ones_like(i)], -1)  # (b, 3)
     return directions
 
 def get_rays_lean(directions, c2w):
@@ -325,90 +296,6 @@ def dda(rays_o, rays_d, bbox_3D):
     t_min = torch.max(torch.min(t, dim=0)[0], dim=-1, keepdim=True)[0]
     t_max = torch.min(torch.max(t, dim=0)[0], dim=-1, keepdim=True)[0]
     return t_min, t_max
-
-
-def ray_marcher(rays, N_samples=64, lindisp=False, perturb=0, bbox_3D=None):
-    """
-    sample points along the rays
-    Inputs:
-        rays: ()
-
-    Returns:
-
-    """
-
-    # Decompose the inputs
-    N_rays = rays.shape[0]
-    rays_o, rays_d = rays[:, 0:3], rays[:, 3:6]  # both (N_rays, 3)
-    near, far = rays[:, 6:7], rays[:, 7:8]  # both (N_rays, 1)
-
-    if bbox_3D is not None:
-        # cal aabb boundles
-        near, far = dda(rays_o, rays_d, bbox_3D)
-
-    # Sample depth points
-    z_steps = torch.linspace(0, 1, N_samples, device=rays.device)  # (N_samples)
-    if not lindisp:  # use linear sampling in depth space
-        z_vals = near * (1 - z_steps) + far * z_steps
-    else:  # use linear sampling in disparity space
-        z_vals = 1 / (1 / near * (1 - z_steps) + 1 / far * z_steps)
-
-    z_vals = z_vals.expand(N_rays, N_samples)
-
-    if perturb > 0:  # perturb sampling depths (z_vals)
-        z_vals_mid = 0.5 * (
-            z_vals[:, :-1] + z_vals[:, 1:]
-        )  # (N_rays, N_samples-1) interval mid points
-        # get intervals between samples
-        upper = torch.cat([z_vals_mid, z_vals[:, -1:]], -1)
-        lower = torch.cat([z_vals[:, :1], z_vals_mid], -1)
-
-        perturb_rand = perturb * torch.rand(z_vals.shape, device=rays.device)
-        z_vals = lower + (upper - lower) * perturb_rand
-
-    xyz_coarse_sampled = rays_o.unsqueeze(1) + rays_d.unsqueeze(1) * z_vals.unsqueeze(
-        2
-    )  # (N_rays, N_samples, 3)
-
-    return xyz_coarse_sampled, rays_o, rays_d, z_vals
-
-
-def read_pfm(filename):
-    with open(filename, "rb") as file:
-        color = None
-        width = None
-        height = None
-        scale = None
-        endian = None
-
-        header = file.readline().decode("utf-8").rstrip()
-        if header == "PF":
-            color = True
-        elif header == "Pf":
-            color = False
-        else:
-            raise Exception("Not a PFM file.")
-
-        dim_match = re.match(r"^(\d+)\s(\d+)\s$", file.readline().decode("utf-8"))
-        if dim_match:
-            width, height = map(int, dim_match.groups())
-        else:
-            raise Exception("Malformed PFM header.")
-
-        scale = float(file.readline().rstrip())
-        if scale < 0:  # little-endian
-            endian = "<"
-            scale = -scale
-        else:
-            endian = ">"  # big-endian
-
-        data = np.fromfile(file, endian + "f")
-        shape = (height, width, 3) if color else (height, width)
-
-        data = np.reshape(data, shape)
-        data = np.flipud(data)
-    return data, scale
-
 
 def ndc_bbox(all_rays):
     near_min = torch.min(all_rays[..., :3].view(-1, 3), dim=0)[0]

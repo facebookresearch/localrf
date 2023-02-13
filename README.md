@@ -1,81 +1,44 @@
 # uberlapse
 
-## Setup proxy TODO: make it permanent
+## Setup
+
+* 
+
+## Data
 ```
-ssh -D 8080 -N ameuleman@ameuleman.sb.facebook.com
+rsync -a /mnt/datassd/ameuleman/videos/ ameuleman@vcgpuserver1.kaist.ac.kr:/mnt/datassd/ameuleman/videos
+rsync -a /mnt/datassd/ameuleman/preprocessed/ ameuleman@vcgpuserver1.kaist.ac.kr:/mnt/datassd/ameuleman/preprocessed
+rsync -a /mnt/datassd/ameuleman/sequenced/ ameuleman@vcgpuserver1.kaist.ac.kr:/mnt/datassd/ameuleman/sequenced
+rsync -a ameuleman@vcgpuserver1.kaist.ac.kr:/mnt/datassd/ameuleman/ /mnt/datassd/ameuleman/
+//vcserver2.kaist.ac.kr/vcpaper4 /home/ameuleman/network_drives/vcpaper4 cifs -o username=ameuleman -o uid=ameuleman
 ```
 
-## Update and create pod
+## Docker
 ```
-docker build -t uberlapse .
-docker rm uberlapse
-docker run --name uberlapse uberlapse
-docker login dtr.thefacebook.com
-docker commit -m "Update dependencies" -a ameuleman uberlapse dtr.thefacebook.com/ameuleman/uberlapse
-docker push dtr.thefacebook.com/ameuleman/uberlapse
+docker build -t localrf --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) .
+docker build -t mipnerf -f mipnerf.Dockerfile .
+docker build -t nerfacto -f nerfacto.Dockerfile .
+docker build -t colmap -f colmap.Dockerfile .
 
-kubectl delete pod uberlapse
-kubectl apply -f kube/pod.yaml
-kubectl describe pod uberlapse
-```
-docker build -t meganerf -f meganerf.Dockerfile .
-docker rm meganerf
-docker run --name meganerf meganerf
-docker commit -m "Update dependencies" -a ameuleman meganerf dtr.thefacebook.com/ameuleman/meganerf
-docker push dtr.thefacebook.com/ameuleman/meganerf
+docker logs --follow 
 
+docker kill $(docker ps -q)
 
-## Allow ssh into pods
-```
-kubectl exec -it uberlapse -- bash -c "mkdir -p /home/docker/.ssh"
-kubectl cp ~/.ssh/id_rsa.pub uberlapse:/home/docker/.ssh/authorized_keys_tmp
-kubectl exec -it uberlapse -- bash -c "cat /home/docker/.ssh/authorized_keys_tmp >> /home/docker/.ssh/authorized_keys"
-kubectl exec -it uberlapse -- bash -c "sudo strip --remove-section=.note.ABI-tag /usr/lib/x86_64-linux-gnu/libQt5Core.so.5"
-kubectl exec -it uberlapse -- bash -c "sudo service ssh start"
-kubectl exec -it uberlapse -- bash -c "sudo mkdir -p /home/docker/.cache/torch/hub/checkpoints/"
-kubectl exec -it uberlapse -- bash -c "sudo chown docker /home/docker/.cache/torch/hub/checkpoints/ -R"
-kubectl exec -it uberlapse -- bash -c "cp /mnt/uberlapse/ameuleman/checkpoints/alexnet-owt-7be5be79.pth /home/docker/.cache/torch/hub/checkpoints/alexnet-owt-7be5be79.pth"
-kubectl exec -it uberlapse -- bash -c "cp -r /mnt/uberlapse/.vscode-server /home/docker/.vscode-server"
-kubectl port-forward uberlapse 2301:22
-ssh docker@localhost -p 2301
-```
-kubectl exec -it uberlapse-no-gpu -- bash -c "mkdir -p /home/docker/.ssh"
-kubectl cp ~/.ssh/id_rsa.pub uberlapse-no-gpu:/home/docker/.ssh/authorized_keys_tmp
-kubectl exec -it uberlapse-no-gpu -- bash -c "cat /home/docker/.ssh/authorized_keys_tmp >> /home/docker/.ssh/authorized_keys"
-kubectl exec -it uberlapse-no-gpu -- bash -c "sudo strip --remove-section=.note.ABI-tag /usr/lib/x86_64-linux-gnu/libQt5Core.so.5"
-kubectl exec -it uberlapse-no-gpu -- bash -c "sudo service ssh start"
-kubectl exec -it uberlapse-no-gpu -- bash -c "cp -r /mnt/uberlapse/.vscode-server /home/docker/.vscode-server"
-----
-kubectl exec -it meganerf -- bash -c "mkdir -p /home/docker/.ssh"
-kubectl cp ~/.ssh/id_rsa.pub meganerf:/home/docker/.ssh/authorized_keys_tmp
-kubectl exec -it meganerf -- bash -c "cat /home/docker/.ssh/authorized_keys_tmp >> /home/docker/.ssh/authorized_keys"
-kubectl exec -it meganerf -- bash -c "sudo service ssh start"
-kubectl exec -it meganerf -- bash -c "cp -r /mnt/uberlapse/.vscode-server /home/docker/.vscode-server"
-
-## Repeate every lost connexion:
-```
-ssh -D 8080 -N ameuleman@ameuleman.sb.facebook.com
-kubectl port-forward uberlapse 2301:22
-kubectl port-forward uberlapse-no-gpu 2302:22
-kubectl port-forward meganerf 2303:22
+JOB_COMPLETION_INDEX=0
+SCENE=sd1
+docker run -it -e NVIDIA_VISIBLE_DEVICES=$JOB_COMPLETION_INDEX --rm -v $PWD:/host -v /mnt/datassd/ameuleman:/data --network=host --runtime=nvidia --ipc=host localrf /bin/sh -c \
+    "cd /host/; \
+    python preprocess_video.py --video_name $SCENE"
 ```
 
-## Sync local files
+## conda
 ```
-scp -r -P 2301 docker@localhost:/mnt/uberlapse/ameuleman/localTensoRF .
-
-kubectl cp uberlapse:/mnt/uberlapse/ameuleman/localTensoRF localTensoRF
-
-scp -r localTensoRF ameuleman@ameuleman.sb.facebook.com:~/uberlapse
-scp kube/job.yaml ameuleman@ameuleman.sb.facebook.com:~/uberlapse/
-kubectl cp uberlapse:/mnt/uberlapse/ameuleman/save_eval.py save_eval.py
-kubectl cp uberlapse:/mnt/uberlapse/ameuleman/avg_eval.py avg_eval.py
-scp save_eval.py ameuleman@ameuleman.sb.facebook.com:~/uberlapse/save_eval.py
-scp avg_eval.py ameuleman@ameuleman.sb.facebook.com:~/uberlapse/avg_eval.py
-#kubectl cp localTensoRF uberlapse:/mnt/uberlapse/ameuleman/localTensoRF
-#kubectl cp save_eval.py uberlapse:/mnt/uberlapse/ameuleman/save_eval.py
-#kubectl cp avg_eval.py uberlapse:/mnt/uberlapse/ameuleman/avg_eval.py
+conda create -n localrf python=3.8
+conda activate localrf
+pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu117
+pip install tqdm scikit-image opencv-python configargparse lpips imageio-ffmpeg kornia lpips tensorboard imageio easydict matplotlib scipy==1.9.1 kornia plyfile joblib timm
 ```
+
 
 ## tensorboard
 ```
@@ -104,6 +67,17 @@ cd DPT
 python run_monodepth.py --input_path ../data/sequenced/$SCENE/images --output_path ../data/sequenced/$SCENE/depth --model_type dpt_large
 ```
 
+## FuSta
+```
+python main.py /mnt/datassd/ameuleman/preprocessed/sequenced/ours/hike_07_08_gopro_4/images/ /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/skip_2/ /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/skip_2/wf/
+
+python run_FuSta.py --load FuSta_model/checkpoint/model_epoch050.pth --input_frames_path /mnt/datassd/ameuleman/preprocessed/sequenced/ours/hike_07_08_gopro_4/images/ --warping_field_path /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/skip_2/wf/ --output_path /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/fusta/ --temporal_width 41 --temporal_step 4
+
+
+python main.py /mnt/datassd/ameuleman/preprocessed/sequenced/ours/hike_07_08_gopro_4/images/ /mnt/datassd/ameuleman/logs_eval/FuSta2/sequenced/ours/hike_07_08_gopro_4/skip_2/ /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced2/ours/hike_07_08_gopro_4/skip_2/wf/
+
+python run_FuSta.py --load FuSta_model/checkpoint/model_epoch050.pth --input_frames_path /mnt/datassd/ameuleman/preprocessed/sequenced/ours/hike_07_08_gopro_4/images/ --warping_field_path /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced2/ours/hike_07_08_gopro_4/skip_2/wf/ --output_path /mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/fusta2/ --temporal_width 41 --temporal_step 4
+```
 
 ## Video and ffmpeg
 For website

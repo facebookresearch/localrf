@@ -4,25 +4,60 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        // {
+        //     "name": "Python: Current File",
+        //     "type": "python",
+        //     "request": "launch",
+        //     "program": "${file}",
+        //     "console": "integratedTerminal",
+        //     "justMyCode": true,
+        //     "args": [
+        //         "/mnt/datassd/ameuleman/preprocessed/sequenced/ours/hike_07_08_gopro_4", "/mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/skip_2", "/mnt/datassd/ameuleman/logs_eval/FuSta/sequenced/ours/hike_07_08_gopro_4/skip_2/wf"
+        //     ]
+        // },
         {
-            "name": "Python: Current File",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
-            "name": "Python: train",
+            "name": "localrf",
             "type": "python",
             "request": "launch",
             "program": "localTensoRF/train.py",
             "console": "integratedTerminal",
+            "justMyCode": true,
             "args": [
-                "--config",
-                "localTensoRF/configs/uberlapse.txt"
-            ],
-            "justMyCode": true
+                "--datadir", "/mnt/datassd/ameuleman/preprocessed/sequenced/ours/uw2/skip_0", 
+                "--logdir", "/mnt/datassd/ameuleman/logs/uw2/e5e-3nt",
+                "--fov", "72",
+                // "--with_GT_poses", "1",
+                // "--optimize_poses", "0",
+                "--subsequence", "550", "630",
+                "--multiGPU", "1",
+                // "--TV_weight_density", "0.1",
+                // "--TV_weight_app", "0.01",
+                // "--loss_depth_weight_inital", "0",
+                // "--loss_flow_weight_inital", "0",
+                // "--L1_weight_inital", "0",
+                // "--batch_size", "1024",
+                "--max_drift", "9999",
+                // "--render_only", "1",
+                // "--downsampling", "1",
+            ]
         }
     ]
 }
+
+// SCENE=garden3
+// FOV=92.8249
+// SCENE=sequenced/ours/hike_07_08_gopro_4/skip_2
+// FOV=70
+// FOV=80
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/${SCENE} --logdir /mnt/datassd/ameuleman/logs/init80-5e-3s/${SCENE} --fov $FOV --subsequence 0 180 --multiGPU 0
+
+// "--datadir", "/mnt/datassd/ameuleman/preprocessed/sequenced/ours/uw2/skip_0", 
+
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/SCENE --logdir /mnt/datassd/ameuleman/logs/SCENE --fov 68
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/sequenced/ours/hike_07_08_gopro_4/skip_2 --logdir /mnt/datassd/ameuleman/logs/sequenced/ours/hike_07_08_gopro_4/nowu --fov 92.8249080797 --subsequence 0 300
+
+
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/sequenced/advanced/Ballroom/skip_4 --logdir /mnt/datassd/ameuleman/logs/reb/ballroom --multiGPU 0 --subsequence 0 300 --fov 80
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/sequenced/intermediate/Train/skip_4 --logdir /mnt/datassd/ameuleman/logs/reb/train --multiGPU 1 --subsequence 0 300  --fov 80
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/sequenced/advanced/Ballroom/skip_4 --logdir /mnt/datassd/ameuleman/logs/reb2/ballroom --with_GT_poses 1 --multiGPU 2 --subsequence 0 300 --optimize_poses 0
+// python localTensoRF/train.py --datadir /mnt/datassd/ameuleman/preprocessed/sequenced/intermediate/Train/skip_4 --logdir /mnt/datassd/ameuleman/logs/reb2/train --with_GT_poses 1 --multiGPU 3 --subsequence 0 300 --optimize_poses 0

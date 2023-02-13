@@ -1,0 +1,19 @@
+_parent_: options/nerf_llff.yaml
+
+barf_c2f:                                                   # coarse-to-fine scheduling on positional encoding
+
+camera:                                                     # camera options
+    noise:                                                  # synthetic perturbations on the camera poses (Blender only)
+
+optim:                                                      # optimization options
+    lr_pose: 3.e-3                                          # learning rate of camera poses
+    lr_pose_end: 1.e-5                                      # terminal learning rate of camera poses (only used with sched_pose.type=ExponentialLR)
+    sched_pose:                                             # learning rate scheduling options
+        type: ExponentialLR                                 # scheduler (see PyTorch doc)
+        gamma:                                              # decay rate (can be empty if lr_pose_end were specified)
+    warmup_pose:                                            # linear warmup of the pose learning rate (N iterations)
+    test_photo: true                                        # test-time photometric optimization for evaluation
+    test_iter: 100                                          # number of iterations for test-time optimization
+
+visdom:                                                     # Visdom options
+    cam_depth: 0.2                                          # size of visualized cameras

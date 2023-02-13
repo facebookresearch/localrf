@@ -1,20 +1,12 @@
-import copy
-from http.client import UnimplementedFileMode
 import math
 
-import numpy as np
 import torch
 
-# from models.tensorBase import render_from_samples
 from models.tensoRF import TensorVMSplit
 
-from utils.camera import lie, sixD_to_mtx
-from utils.ray_utils import get_ray_directions_lean, get_rays_lean, ndc_rays_blender2
-from utils.utils import cal_n_samples, N_to_reso
-from torch_efficient_distloss.eff_distloss import eff_distloss_native
-
-# from .torch_efficient_distloss import flatten_eff_distloss
-
+from utils.utils import mtx_to_sixD, sixD_to_mtx
+from utils.ray_utils import get_ray_directions_lean, get_rays_lean
+from utils.utils import N_to_reso
 
 def ids2pixel_view(W, H, ids):
     """
@@ -40,107 +32,85 @@ class LocalTensorfs(torch.nn.Module):
 
     def __init__(
         self,
-        lr_poses_init,
-        camera_prior,
         fov,
-        pose_representation,
-        ray_type,
         n_init_frames,
         n_overlap,
-        blending_mode,
         WH,
-        new_rf_init,
-        n_iters,
+        n_iters_per_frame,
+        n_iters_reg,
+        lr_R_init,
+        lr_t_init,
+        lr_i_init,
+        lr_exposure_init,
         rf_lr_init,
         rf_lr_basis,
         lr_decay_target_ratio,
-        rf_lr_factor,
         N_voxel_list,
-        lr_upsample_reset,
-        optimize_focal,
+        update_AlphaMask_list,
+        camera_prior,
         device,
-        shadingMode,
+        lr_upsample_reset,
         **tensorf_args,
     ):
 
         super(LocalTensorfs, self).__init__()
 
-        self.camera_prior = camera_prior
         self.fov = fov
-        self.pose_representation = pose_representation
-        self.ray_type = ray_type
         self.n_init_frames = n_init_frames
         self.n_overlap = n_overlap
-        self.blending_mode = blending_mode
         self.W, self.H = WH
-        self.new_rf_init = new_rf_init
-        self.n_iters = n_iters
+        self.n_iters_per_frame = n_iters_per_frame
+        self.n_iters_reg_per_frame = n_iters_reg
+        self.lr_R_init, self.lr_t_init, self.lr_i_init, self.lr_exposure_init = lr_R_init, lr_t_init, lr_i_init, lr_exposure_init
         self.rf_lr_init, self.rf_lr_basis, self.lr_decay_target_ratio = rf_lr_init, rf_lr_basis, lr_decay_target_ratio
-        self.rf_lr_factor = rf_lr_factor
-        self.N_voxel_list = N_voxel_list
-        self.lr_upsample_reset = lr_upsample_reset
-        self.optimize_focal = optimize_focal
+        self.N_voxel_per_frame_list = N_voxel_list
+        self.update_AlphaMask_per_frame_list = update_AlphaMask_list
         self.device = device
-        self.shadingMode = shadingMode
+        self.camera_prior = camera_prior
         self.tensorf_args = tensorf_args
-        self.lr_pose = lr_poses_init
         self.is_refining = False
+        self.lr_upsample_reset = lr_upsample_reset
+
+        self.lr_factor = 1
+        self.regularize = True
+        self.n_iters_reg = self.n_iters_reg_per_frame
+        self.n_iters = self.n_iters_per_frame
+        self.update_AlphaMask_list = update_AlphaMask_list
+        self.N_voxel_list = N_voxel_list
 
         # Setup pose and camera parameters
-        self.cam2world, self.app_embedings = torch.nn.ParameterList(), torch.nn.ParameterList()
-        self.pose_optimizers, self.pose_linked_rf = [], [] #, self.pose_schedulers, self.pose_iter, self.n_iters_pose = [], [], [], []
-        self.append_frame(n_init_frames)
+        self.r_c2w, self.t_c2w, self.exposure = torch.nn.ParameterList(), torch.nn.ParameterList(), torch.nn.ParameterList()
+        self.r_optimizers, self.t_optimizers, self.exp_optimizers, self.pose_linked_rf = [], [], [], [] 
+        self.blending_weights = torch.nn.Parameter(
+            torch.ones([1, 1], device=self.device, requires_grad=False), 
+            requires_grad=False,
+        )
+        for _ in range(n_init_frames):
+            self.append_frame()
 
         if self.camera_prior is not None:
-            focal = torch.Tensor([self.camera_prior["transforms"]["fl_x"], self.camera_prior["transforms"]["fl_y"]]).to(self.device)
+            focal = self.camera_prior["transforms"]["fl_x"]
             focal *= self.W / self.camera_prior["transforms"]["w"]
         else:
-            fov2 = fov * math.pi / 180
-            f = self.W / math.tan(fov2 / 2) / 2
-            focal = torch.Tensor([f, f]).to(self.device)
-        fov2 = 2 * torch.atan(torch.Tensor(WH).to(self.device) / focal / 2)
-        self.fov2 = torch.nn.Parameter(fov2)
+            fov = fov * math.pi / 180
+            focal = self.W / math.tan(fov / 2) / 2
+        
+        self.init_focal = torch.nn.Parameter(torch.Tensor([focal]).to(self.device))
 
-        self.focal_offset = torch.nn.Parameter(torch.zeros_like(focal))
-        self.center_offset = torch.nn.Parameter(torch.zeros_like(focal))
-        self.dist_coefs = torch.nn.Parameter(torch.zeros_like(focal))
+        self.focal_offset = torch.nn.Parameter(torch.ones(1, device=device))
 
-        if self.camera_prior is not None:
-            with torch.no_grad():
-                self.focal_offset[1] = (focal[1] - focal[0]) / (self.W + self.H) * 2
-        # def focal(self, W, H):
-        #     # focal = torch.Tensor([W, H]).to(self.fov2) / torch.tan(self.fov2 / 2) / 2
-        #     focal = W / torch.tan(self.fov2[0] / 2) / 2
-        #     focal = focal.expand([2])
-        #     focal = focal + self.focal_offset * (W + H) / 2
-
-        # self.dist_coefs = torch.nn.Parameter(torch.zeros([4], device=device))
-        if optimize_focal:
-            self.intrinsics_grad_vars = [
-                {"params": self.fov2, "lr": self.lr_pose * 1e-1},
-                {"params": self.focal_offset, "lr": self.lr_pose * 1e-3},
-                {"params": self.center_offset, "lr": self.lr_pose * 1e-3},
-                {"params": self.dist_coefs, "lr": self.lr_pose * 1e-2},
-            ]
-            self.intrinsic_optimizer = torch.optim.Adam(self.intrinsics_grad_vars, betas=(0.9, 0.99))
-            self.intrinsic_optimizer_init = torch.optim.Adam(copy.deepcopy(self.intrinsics_grad_vars), betas=(0.9, 0.99))
+        if lr_i_init > 0:
+            self.intrinsic_optimizer = torch.optim.Adam([self.focal_offset], betas=(0.9, 0.99), lr=self.lr_i_init)
 
 
         # Setup radiance fields
         self.tensorfs = torch.nn.ParameterList()
         self.rf_optimizers, self.rf_iter = [], []
         self.world2rf = torch.nn.ParameterList()
-        self.blending_weights = torch.nn.Parameter(
-            torch.ones([self.n_init_frames, 1], device=self.device, requires_grad=False), 
-            requires_grad=False,
-        )
         self.append_rf()
-        grad_vars = self.tensorfs[-1].get_optparam_groups(
-            self.rf_lr_init, self.rf_lr_basis
-        )
-        self.default_rf_opt = (torch.optim.Adam(grad_vars, betas=(0.9, 0.99)))
 
     def append_rf(self, n_added_frames=1):
+        self.is_refining = False
         if len(self.tensorfs) > 0:
             n_overlap = min(n_added_frames, self.n_overlap, self.blending_weights.shape[0] - 1)
             weights_overlap = 1 / n_overlap + torch.arange(
@@ -154,34 +124,15 @@ class LocalTensorfs(torch.nn.Module):
                 torch.cat([self.blending_weights, new_blending_weights], dim=1),
                 requires_grad=False,
             )
-            world2rf = self.get_mtx(self.cam2world[-1][-1:].detach().clone())[0]
-            world2rf[:3, :3] = torch.eye(3, device=world2rf.device)
-            world2rf[:3, 3] = -world2rf[:3, 3]
+            world2rf = -self.t_c2w[-1].detach().clone()
         else:
-            world2rf = torch.eye(3, 4, device=self.device)
+            world2rf = torch.zeros(3, device=self.device)
 
-        self.tensorfs.append(TensorVMSplit(self.device, shadingMode=self.shadingMode, **self.tensorf_args))
+        self.tensorfs.append(TensorVMSplit(device=self.device, **self.tensorf_args))
 
         self.world2rf.append(world2rf.detach())
         
         self.rf_iter.append(0)
-
-        if self.new_rf_init and len(self.tensorfs) > 1:
-            keys = list(self.N_voxel_list.keys())
-            valid_upsampling_iter = np.array(keys) <= self.rf_iter[-2]
-            key_idx = valid_upsampling_iter.nonzero()[0]
-            if len(key_idx) > 1:
-                # key = keys[key_idx[-min(3, len(key_idx))]]
-                key = keys[key_idx[-2]]
-                n_voxels = self.N_voxel_list[key]
-                reso_cur = N_to_reso(n_voxels, self.tensorfs[-1].aabb)
-                self.tensorfs[-1].upsample_volume_grid(reso_cur)
-                self.rf_iter[-1] = key + 1
-
-            self.tensorfs[-1].init_from_prev(
-                self.tensorfs[-2], 
-                self.world2rf[-1][:3, 3].detach() - self.world2rf[-2][:3, 3].detach()
-            )
 
         grad_vars = self.tensorfs[-1].get_optparam_groups(
             self.rf_lr_init, self.rf_lr_basis
@@ -189,124 +140,96 @@ class LocalTensorfs(torch.nn.Module):
         self.rf_optimizers.append(torch.optim.Adam(grad_vars, betas=(0.9, 0.99)))
 
         print("************ blending_weights", self.blending_weights)
+   
+    def append_frame(self):
+        if len(self.r_c2w) == 0:
+            self.r_c2w.append(torch.eye(3, 2, device=self.device))
+            self.t_c2w.append(torch.zeros(3, device=self.device))
+            self.exposure.append(torch.eye(3, 3, device=self.device))
 
-    def get_training_frames(self):
-        training_tensorfs = np.array(self.rf_iter) < self.n_iters
-        training_weights = (
-            self.blending_weights.detach().cpu().numpy()[:, training_tensorfs]
-        )
-        return (training_weights > 0).any(axis=1)
-    
-    def append_frame(self, n_frames=1, reset_rf_opt=False):
-        if len(self.cam2world) == 0:
-            self.cam2world.append(self.init_poses(n_frames))
-            if self.shadingMode == "MLP_Fea_late_view_late_emb":
-                self.app_embedings.append(torch.randn([1, 16], device=self.device).repeat(n_frames, 1))
-            self.pose_linked_rf.append(0)
-            # self.n_iters_pose.append(self.n_iters)
+            self.pose_linked_rf.append(0)            
         else:
-            new_cams = self.get_mtx(self.cam2world[-1][-1:].repeat(n_frames, 1, 1))
-            poses6d = []
-            for new_cam in new_cams:
-                pose = torch.zeros(3, 3).to(self.device)
-                pose[:, 0] = new_cam[:3, 0]
-                pose[:, 1] = new_cam[:3, 1]
-                pose[:, 2] = new_cam[:3, 3]
-                poses6d.append(pose)
-
-            poses6d = torch.stack(poses6d, 0)
-            self.cam2world.append(poses6d)
-            if self.shadingMode == "MLP_Fea_late_view_late_emb":
-                self.app_embedings.append(self.app_embedings[-1][-1:].repeat(n_frames, 1))
+            self.r_c2w.append(mtx_to_sixD(sixD_to_mtx(self.r_c2w[-1].detach()[None]))[0])
+            self.t_c2w.append(self.t_c2w[-1].detach().clone())
+            self.exposure.append(self.exposure[-1].detach().clone())
 
             self.blending_weights = torch.nn.Parameter(
                 torch.cat([self.blending_weights, self.blending_weights[-1:, :]], dim=0),
                 requires_grad=False,
             )
 
-            rf_ind = torch.nonzero(self.blending_weights[-1, :])[0]
+            rf_ind = int(torch.nonzero(self.blending_weights[-1, :])[0])
             self.pose_linked_rf.append(rf_ind)
-
-            if reset_rf_opt:
-                for param_group, param_group_init in zip(self.rf_optimizers[rf_ind].param_groups, self.default_rf_opt.param_groups):
-                    param_group["lr"] = param_group_init["lr"]
                 
-                upsampling_iterations = np.array([-1] + list(self.N_voxel_list.keys()))
-                last_upsampling_iteration = upsampling_iterations[upsampling_iterations < self.rf_iter[rf_ind]].max()
-                self.rf_iter[rf_ind] = last_upsampling_iteration + 1
-
-                
-            # Prevent optimizing poses after the current RF is done optimizing
-            # rf_ind = torch.nonzero(self.blending_weights[-1, :])[0]
-            # self.n_iters_pose.append(max(self.n_iters - self.rf_iter[rf_ind], 1)) #  - self.rf_iter[rf_ind]
-
         if self.camera_prior is not None:
-            rel_poses = self.camera_prior["rel_poses"]
-            poses6d = []
-            cam2world = self.get_cam2world()
-            for idx in range(len(cam2world) - n_frames, len(cam2world)):
-                prev_c2w = cam2world[max(idx - 1, 0)].clone()
-                cam2world[idx] = prev_c2w.clone()
-                cam2world[idx][:3, :3] = prev_c2w[:3, :3] @ rel_poses[idx][:3, :3]
-                cam2world[idx][:3, 3] += prev_c2w[:3, :3] @ rel_poses[idx][:3, 3]
-
-                pose = torch.zeros(3, 3).to(self.device)
-                pose[:, 0] = cam2world[idx, :3, 0]
-                pose[:, 1] = cam2world[idx, :3, 1]
-                pose[:, 2] = cam2world[idx, :3, 3]
-                poses6d.append(pose)
-
-            poses6d = torch.stack(poses6d, 0)
-            self.cam2world[-1].data = poses6d
-
-        if self.shadingMode == "MLP_Fea_late_view_late_emb":
-            self.pose_optimizers.append(torch.optim.Adam([self.cam2world[-1], self.app_embedings[-1]], betas=(0.9, 0.99), lr=self.lr_pose)) # , betas=(0.9, 0.99)
-        else:
-            self.pose_optimizers.append(torch.optim.Adam([self.cam2world[-1]], betas=(0.9, 0.99), lr=self.lr_pose)) # , betas=(0.9, 0.99)
-        # lr_pose_end = 1e-5  # 5:X, 10:X
-        # self.pose_optimizers.append(torch.optim.Adam([self.cam2world[-1]], lr=lr_pose))
-        # gamma = (lr_pose_end / lr_pose) ** (1.0 / (self.n_iters_pose[-1]))
-        # self.pose_schedulers.append(
-        #     torch.optim.lr_scheduler.ExponentialLR(
-        #         self.pose_optimizers[-1], gamma=gamma
-        #     )
-        # )
+            idx = len(self.r_c2w) - 1
+            rel_pose = self.camera_prior["rel_poses"][idx]
+            last_r_c2w = sixD_to_mtx(self.r_c2w[-1].detach()[None])[0]
+            self.r_c2w[-1] = last_r_c2w @ rel_pose[:3, :3]
+            self.t_c2w[-1].data += last_r_c2w @ rel_pose[:3, 3]
+            
+        self.r_optimizers.append(torch.optim.Adam([self.r_c2w[-1]], betas=(0.9, 0.99), lr=self.lr_R_init)) 
+        self.t_optimizers.append(torch.optim.Adam([self.t_c2w[-1]], betas=(0.9, 0.99), lr=self.lr_t_init)) 
+        self.exp_optimizers.append(torch.optim.Adam([self.exposure[-1]], betas=(0.9, 0.99), lr=self.lr_exposure_init)) 
 
     def optimizer_step_poses_only(self, loss):
-        for idx in range(len(self.pose_optimizers)):
-            iteration = self.rf_iter[self.pose_linked_rf[idx]]
-            if iteration < self.n_iters - 10:
-                for param_group in self.pose_optimizers[idx].param_groups:
-                    param_group["lr"] = self.lr_pose * max((self.rf_lr_factor ** (iteration)), 0)
-                self.pose_optimizers[idx].zero_grad()
+        for idx in range(len(self.r_optimizers)):
+            if self.pose_linked_rf[idx] == len(self.rf_iter) - 1 and self.rf_iter[-1] < self.n_iters:
+                self.r_optimizers[idx].zero_grad()
+                self.t_optimizers[idx].zero_grad()
         
         loss.backward()
 
         # Optimize poses
-        for idx in range(len(self.cam2world)):
-            iteration = self.rf_iter[self.pose_linked_rf[idx]]
-            if iteration < self.n_iters - 10:
-                self.pose_optimizers[idx].step()
+        for idx in range(len(self.r_optimizers)):
+            if self.pose_linked_rf[idx] == len(self.rf_iter) - 1 and self.rf_iter[-1] < self.n_iters:
+                self.r_optimizers[idx].step()
+                self.t_optimizers[idx].step()
                 
     def optimizer_step(self, loss, optimize_poses):
-        if optimize_poses:
-            # Poses
-            for idx in range(len(self.pose_optimizers)):
-                iteration = self.rf_iter[self.pose_linked_rf[idx]]
-                if iteration < self.n_iters - 10:
-                    for param_group in self.pose_optimizers[idx].param_groups:
-                        param_group["lr"] = self.lr_pose * max((self.rf_lr_factor ** (iteration)), 0)
-                    self.pose_optimizers[idx].zero_grad()
+        if self.rf_iter[-1] == 0:
+            self.lr_factor = 1
+            self.n_iters = self.n_iters_per_frame
+            self.n_iters_reg = self.n_iters_reg_per_frame
             
-            # Intrinsics
-            if self.optimize_focal and self.rf_iter[0] < self.n_iters - 10:
-                warmup_iters = 200
-                loss_scaler = (self.rf_iter[0] / warmup_iters) if self.rf_iter[0] < warmup_iters else (self.rf_lr_factor ** (self.rf_iter[0]))
-                loss_scaler = max(loss_scaler, 0)
-                # loss_scaler = self.rf_lr_factor ** (self.rf_iter[0])
-                for param_group, param_group_init in zip(self.intrinsic_optimizer.param_groups, self.intrinsic_optimizer_init.param_groups):
-                    param_group["lr"] = param_group_init["lr"] * loss_scaler
-                self.intrinsic_optimizer.zero_grad()
+
+        elif self.rf_iter[-1] == 1:
+            n_training_frames = (self.blending_weights[:, -1] > 0).sum()
+            self.n_iters = int(self.n_iters_per_frame * n_training_frames)
+            self.lr_factor = self.lr_decay_target_ratio ** (1 / self.n_iters)
+            self.N_voxel_list = {int(key * n_training_frames): self.N_voxel_per_frame_list[key] for key in self.N_voxel_per_frame_list}
+            self.update_AlphaMask_list = [int(update_AlphaMask * n_training_frames) for update_AlphaMask in self.update_AlphaMask_per_frame_list]
+
+        self.regularize = self.rf_iter[-1] < self.n_iters_reg
+
+        for idx in range(len(self.r_optimizers)):
+            if self.pose_linked_rf[idx] == len(self.rf_iter) - 1 and self.rf_iter[-1] < self.n_iters:
+                # Poses
+                if optimize_poses:
+                    for param_group in self.r_optimizers[idx].param_groups:
+                        param_group["lr"] *= self.lr_factor
+                    for param_group in self.t_optimizers[idx].param_groups:
+                        param_group["lr"] *= self.lr_factor
+                    self.r_optimizers[idx].zero_grad()
+                    self.t_optimizers[idx].zero_grad()
+                
+                # Exposure
+                if self.lr_exposure_init > 0:
+                    for param_group in self.exp_optimizers[idx].param_groups:
+                        param_group["lr"] *= self.lr_factor
+                    self.exp_optimizers[idx].zero_grad()
+
+        
+        
+        # Intrinsics
+        if (
+            self.lr_i_init > 0 and 
+            self.blending_weights.shape[1] == 1 and 
+            self.blending_weights.shape[0] > 20
+        ):
+            for param_group in self.intrinsic_optimizer.param_groups:
+                param_group["lr"] *= self.lr_factor
+            self.intrinsic_optimizer.zero_grad()
 
         # tensorfs
         for optimizer, iteration in zip(self.rf_optimizers, self.rf_iter):
@@ -316,82 +239,81 @@ class LocalTensorfs(torch.nn.Module):
         loss.backward()
 
         # Optimize RFs
-        should_add_rf = False
-        for idx in range(len(self.tensorfs)):
-            if self.rf_iter[idx] < self.n_iters:
-                self.rf_optimizers[idx].step()
-                for param_group in self.rf_optimizers[idx].param_groups:
-                    param_group["lr"] = param_group["lr"] * self.rf_lr_factor
+        self.rf_optimizers[-1].step()
+        if self.is_refining:
+            for param_group in self.rf_optimizers[-1].param_groups:
+                param_group["lr"] = param_group["lr"] * self.lr_factor
 
-                # Increase RF resolution
-                if self.rf_iter[idx] in self.N_voxel_list:
-                    n_voxels = self.N_voxel_list[self.rf_iter[idx]]
-                    reso_cur = N_to_reso(n_voxels, self.tensorfs[idx].aabb)
-                    self.tensorfs[idx].upsample_volume_grid(reso_cur)
+        # Update alpha mask
+        if iteration in self.update_AlphaMask_list:
+            reso_mask = self.tensorfs[-1].gridSize
+            self.tensorfs[-1].updateAlphaMask(tuple(reso_mask))
 
-                    if self.lr_upsample_reset:
-                        print("reset lr to initial")
-                        grad_vars = self.tensorfs[idx].get_optparam_groups(
-                            self.rf_lr_init, self.rf_lr_basis
-                        )
-                        self.rf_optimizers[idx] = torch.optim.Adam(
-                            grad_vars, betas=(0.9, 0.99)
-                        )
+        # Increase RF resolution
+        if self.rf_iter[-1] in self.N_voxel_list:
+            n_voxels = self.N_voxel_list[self.rf_iter[-1]]
+            reso_cur = N_to_reso(n_voxels, self.tensorfs[-1].aabb)
+            self.tensorfs[-1].upsample_volume_grid(reso_cur)
 
-                if self.rf_iter[idx] == self.n_iters - 1:
-                    should_add_rf = True
+            if self.lr_upsample_reset:
+                print("reset lr to initial")
+                grad_vars = self.tensorfs[-1].get_optparam_groups(
+                    self.rf_lr_init, self.rf_lr_basis
+                )
+                self.rf_optimizers[-1] = torch.optim.Adam(grad_vars, betas=(0.9, 0.99))
 
-                if self.is_refining:
-                    self.rf_iter[idx] += 1
+        for idx in range(len(self.r_optimizers)):
+            if self.pose_linked_rf[idx] == len(self.rf_iter) - 1 and self.rf_iter[-1] < self.n_iters:
+                # Optimize poses
+                if optimize_poses:
+                    self.r_optimizers[idx].step()
+                    self.t_optimizers[idx].step()
+                # Optimize exposures
+                if self.lr_exposure_init > 0:
+                    self.exp_optimizers[idx].step()
+        
+        # Optimize intrinsics
+        if (
+            self.lr_i_init > 0 and 
+            self.blending_weights.shape[1] == 1 and
+            self.is_refining 
+        ):
+            self.intrinsic_optimizer.step()
 
-        if optimize_poses:
-            # Optimize poses
-            for idx in range(len(self.cam2world)):
-                iteration = self.rf_iter[self.pose_linked_rf[idx]]
-                if iteration < self.n_iters:
-                    self.pose_optimizers[idx].step()
-            
-            if self.optimize_focal and self.rf_iter[0] < self.n_iters:
-                self.intrinsic_optimizer.step()
+        if self.is_refining:
+            self.rf_iter[-1] += 1
 
-        # Stop when no more radiance field is optimizing
-        return (np.array(self.rf_iter) < self.n_iters).any(), should_add_rf
-
-    def init_poses(self, n_poses):
-        poses = torch.zeros([n_poses, 3, 3], device=self.device)
-        poses[:, 0, 0] = 1
-        poses[:, 1, 1] = 1
-
-        return poses
-
-    def get_mtx(self, poses):
-        return sixD_to_mtx(poses, 1)
+        can_add_rf = self.rf_iter[-1] >= self.n_iters - 1
+        return can_add_rf
 
     def get_cam2world(self, view_ids=None):
-        cam2world = torch.cat(list(self.cam2world), dim=0)
-        if view_ids is None:
-            return self.get_mtx(cam2world)
-        else:
-            return self.get_mtx(cam2world[view_ids])
+        r_c2w = torch.stack(list(self.r_c2w), dim=0)
+        t_c2w = torch.stack(list(self.t_c2w), dim=0)
+        if view_ids is not None:
+            r_c2w = r_c2w[view_ids]
+            t_c2w = t_c2w[view_ids]
+        return torch.cat([sixD_to_mtx(r_c2w), t_c2w[..., None]], dim = -1)
 
     def get_kwargs(self):
         kwargs = {
+            "camera_prior": None,
             "fov": self.fov,
-            "pose_representation": self.pose_representation,
-            "ray_type": self.ray_type,
             "n_init_frames": self.n_init_frames,
             "n_overlap": self.n_overlap,
-            "blending_mode": self.blending_mode,
             "WH": (self.W, self.H),
-            "n_iters": self.n_iters,
-            "new_rf_init": self.new_rf_init,
+            "n_iters_per_frame": self.n_iters_per_frame,
+            "n_iters_reg": self.n_iters_reg_per_frame,
+            "lr_R_init": self.lr_R_init,
+            "lr_t_init": self.lr_t_init,
+            "lr_i_init": self.lr_i_init,
+            "lr_exposure_init": self.lr_exposure_init,
             "rf_lr_init": self.rf_lr_init,
             "rf_lr_basis": self.rf_lr_basis,
             "lr_decay_target_ratio": self.lr_decay_target_ratio,
-            "rf_lr_factor": self.rf_lr_factor,
-            "N_voxel_list": self.N_voxel_list,
+            "lr_decay_target_ratio": self.lr_decay_target_ratio,
+            "N_voxel_list": self.N_voxel_per_frame_list,
+            "update_AlphaMask_list": self.update_AlphaMask_per_frame_list,
             "lr_upsample_reset": self.lr_upsample_reset,
-            "optimize_focal": self.optimize_focal,
         }
         kwargs.update(self.tensorfs[0].get_kwargs())
 
@@ -405,59 +327,55 @@ class LocalTensorfs(torch.nn.Module):
     def load(self, state_dict):
         # TODO A bit hacky?
         import re
+        n_frames = 0
         for key in state_dict:
-            if re.fullmatch(r"cam2world.[1-9][0-9]*", key):
-                self.append_frame(state_dict[key].shape[0])
+            if re.fullmatch(r"r_c2w.[0-9]*", key):
+                n_frames += 1
             if re.fullmatch(r"tensorfs.[1-9][0-9]*.density_plane.0", key):
                 self.tensorf_args["gridSize"] = [state_dict[key].shape[2], state_dict[key].shape[3], state_dict[f"{key[:-15]}density_line.0"].shape[2]]
                 self.append_rf()
 
+        for i in range(len(self.tensorfs)):
+            if f"tensorfs.{i}.alphaMask.aabb" in state_dict:
+                reso_mask = self.tensorfs[i].gridSize
+                self.tensorfs[i].updateAlphaMask(tuple(reso_mask))
+
+
+        for _ in range(n_frames - len(self.r_c2w)):
+            self.append_frame()
+        
         self.blending_weights = torch.nn.Parameter(
             torch.ones_like(state_dict["blending_weights"]), requires_grad=False
         )
 
         self.load_state_dict(state_dict)
 
-    def get_cam2rf(self, world2rf, cam2world, active_rf_ids):
-        cam2rfs = {}
-        for rf_id in active_rf_ids:
-            cam2rf = cam2world.clone()
-            cam2rf[:, :3, 3] += world2rf[rf_id][:3, 3][None]
+        for i in range(len(self.tensorfs)):
+            reso_mask = self.tensorfs[i].gridSize
+            self.tensorfs[i].updateAlphaMask(tuple(reso_mask))
 
-            cam2rfs[rf_id] = cam2rf
-        return cam2rfs
 
     def get_dist_to_last_rf(self):
-        cam2rf = self.get_cam2rf(self.world2rf, self.get_cam2world()[-1][None], [-1])[-1]
-        return torch.norm(cam2rf[0, :3, 3])
+        return torch.norm(self.t_c2w[-1] + self.world2rf[-1])
 
     def get_reg_loss(self, tvreg, TV_weight_density, TV_weight_app, L1_weight_inital):
         tv_loss = 0
         l1_loss = 0
-        for tensorf, iteration in zip(self.tensorfs, self.rf_iter):
-            if iteration < self.n_iters:
-                if TV_weight_density > 0:
-                    tv_weight = TV_weight_density * (self.rf_lr_factor ** iteration)
-                    tv_loss += tensorf.TV_loss_density(tvreg).mean() * tv_weight
-                    
-                    tv_weight = TV_weight_app * self.rf_lr_factor ** iteration
-                    tv_loss += tensorf.TV_loss_app(tvreg).mean() * tv_weight
-        
-                if L1_weight_inital > 0:
-                    l1_loss += tensorf.density_L1() * L1_weight_inital # * (self.rf_lr_factor ** iteration)
+        if self.rf_iter[-1] < self.n_iters:
+            if TV_weight_density > 0:
+                tv_weight = TV_weight_density * (self.lr_factor ** self.rf_iter[-1])
+                tv_loss += self.tensorfs[-1].TV_loss_density(tvreg).mean() * tv_weight
+                
+                tv_weight = TV_weight_app * self.lr_factor ** self.rf_iter[-1]
+                tv_loss += self.tensorfs[-1].TV_loss_app(tvreg).mean() * tv_weight
+    
+            if L1_weight_inital > 0:
+                l1_loss += self.tensorfs[-1].density_L1() * L1_weight_inital
         return tv_loss, l1_loss
 
-    def focal(self, W, H):
-        # focal = torch.Tensor([W, H]).to(self.fov2) / torch.tan(self.fov2 / 2) / 2
-        focal = W / torch.tan(self.fov2[0] / 2) / 2
-        focal = focal.expand([2])
-        focal = focal + self.focal_offset * (W + H) / 2
-        return focal
+    def focal(self, W):
+        return self.init_focal * self.focal_offset * W / self.W 
 
-    def center(self, W, H):
-        center = torch.Tensor([W / 2, H / 2]).to(self.center_offset)
-        center = center + self.center_offset * (W + H) / 2
-        return center
 
     def forward(
         self,
@@ -470,116 +388,94 @@ class LocalTensorfs(torch.nn.Module):
         cam2world=None,
         world2rf=None,
         blending_weights=None,
-        opasity_gamma=1.0,
-        distortion_loss_weight=0,
-        chunk=4096,
-        test=False,
+        chunk=16384,
+        test_id=False,
     ):
-        focal = self.focal(W, H)
+        focal = self.focal(W) 
         i, j = ids2pixel(W, H, ray_ids)
-        directions = get_ray_directions_lean(i, j, focal, self.center(W, H), self.dist_coefs)
+        directions = get_ray_directions_lean(i, j, focal, [W / 2, H / 2])
 
         if blending_weights is None:
             blending_weights = self.blending_weights[view_ids].clone()
         if cam2world is None:
             cam2world = self.get_cam2world(view_ids)
-        elif cam2world.shape[0] == 1:
-            view_ids *= 0
         if world2rf is None:
             world2rf = self.world2rf
 
-        # Binarize weights for blending so we query a single RF per ray
-        if is_train:# and self.blending_mode == "image":
-            non_training_rf = torch.tensor(self.rf_iter).to(ray_ids) >= self.n_iters
-            blending_weights = blending_weights.detach().clone()
-            blending_weights[:, non_training_rf] = 0
-            blending_weights[blending_weights > 0] = torch.clamp(torch.rand_like(blending_weights[blending_weights > 0]), 1e-6)
-            blending_weights /= torch.sum(blending_weights, dim=1, keepdim=True)
-            blending_weights = torch.nan_to_num(blending_weights, 0, 0, 0)
-
-            blending_weights[blending_weights > 0.5] = 1
-            blending_weights[blending_weights < 0.5] = 0
-
-        # TODO Remove
-        # blending_weights[blending_weights > 0.5] = 1
-        # blending_weights[blending_weights < 0.5] = 0
+        # Train a single RF at a time
+        if is_train:
+            blending_weights[:, -1] = 1
+            blending_weights[:, :-1] = 0
 
         active_rf_ids = torch.nonzero(torch.sum(blending_weights, dim=0))[:, 0].tolist()
         ij = torch.stack([i, j], dim=-1)
         if len(active_rf_ids) == 0:
-            print("****** No good RF")
-            return torch.ones([ray_ids.shape[0], 3]), torch.ones_like(ray_ids).float(), torch.ones_like(ray_ids).float(), directions, ij, blending_weights, 0
+            print("****** No valid RF")
+            return torch.ones([ray_ids.shape[0], 3]), torch.ones_like(ray_ids).float(), torch.ones_like(ray_ids).float(), directions, ij, blending_weights
 
-        cam2rfs = self.get_cam2rf(world2rf, cam2world, active_rf_ids)
+        cam2rfs = {}
+        for rf_id in active_rf_ids:
+            cam2rf = cam2world.clone()
+            cam2rf[:, :3, 3] += world2rf[rf_id]
 
-        if self.shadingMode == "MLP_Fea_late_view_late_emb":
-            app_embedings = torch.cat(list(self.app_embedings), 0)
-            app_embedings = app_embedings[view_ids]
-        else:
-            app_embedings = None
+            cam2rfs[rf_id] = cam2rf
 
-        # view_ids_expanded = view_ids.repeat_interleave(ray_ids.shape[0] // view_ids.shape[0])
         for key in cam2rfs:
             cam2rfs[key] = cam2rfs[key].repeat_interleave(ray_ids.shape[0] // view_ids.shape[0], dim=0)
         blending_weights_expanded = blending_weights.repeat_interleave(ray_ids.shape[0] // view_ids.shape[0], dim=0)
-        rgbs, depth_maps, depth_maps_gamma = [], [], []
+        rgbs, depth_maps = [], []
         N_rays_all = ray_ids.shape[0]
         chunk = chunk // len(active_rf_ids)
-        dist_loss = torch.zeros(1, device=ray_ids.device)
         for chunk_idx in range(N_rays_all // chunk + int(N_rays_all % chunk > 0)):
             if chunk_idx != 0:
                 torch.cuda.empty_cache()
-            if self.shadingMode == "MLP_Fea_late_view_late_emb":
-                app_embedings_chunk = app_embedings[chunk_idx * chunk : (chunk_idx + 1) * chunk]
             directions_chunk = directions[chunk_idx * chunk : (chunk_idx + 1) * chunk]
-            # view_ids_chunk = view_ids_expanded[chunk_idx * chunk : (chunk_idx + 1) * chunk]
             blending_weights_chunk = blending_weights_expanded[
                 chunk_idx * chunk : (chunk_idx + 1) * chunk
             ]
 
-            all_z_val, all_rgb, all_sigma = [], [], []
-            rgb_map, depth_map, depth_map_gamma = 0, 0, 0
+            rgb_map, depth_map = 0, 0
             for rf_id in active_rf_ids:
                 blending_weight_chunk = blending_weights_chunk[:, rf_id]
                 cam2rf = cam2rfs[rf_id][chunk_idx * chunk : (chunk_idx + 1) * chunk]
-                # cam2rf = cam2rf[view_ids_chunk]
 
                 rays_o, rays_d = get_rays_lean(directions_chunk, cam2rf)
-                if self.ray_type == "ndc":
-                    rays_o, rays_d = ndc_rays_blender2(H, W, focal, 1.0, rays_o, rays_d)
                 rays = torch.cat([rays_o, rays_d], -1).view(-1, 6)
 
-                valid = blending_weight_chunk > 0
-                # if self.blending_mode == "image":
-                rgb_map_t = torch.zeros_like(rays[:, :3])
-                depth_map_t = torch.zeros_like(rays[:, 0])
-                depth_map_gamma_t = torch.zeros_like(rays[:, 0])
-                rgb_map_t[valid], depth_map_t[valid], depth_map_gamma_t[valid], distances, dists, alpha, T, weight, alpha_gamma, T_gamma, weight_gamma = self.tensorfs[rf_id](
-                    rays[valid],
+                rgb_map_t, depth_map_t = self.tensorfs[rf_id](
+                    rays,
                     is_train=is_train,
                     white_bg=white_bg,
-                    ray_type=self.ray_type,
                     N_samples=-1,
-                    opasity_gamma=opasity_gamma,
-                    app_embedings=app_embedings_chunk[valid] if self.shadingMode == "MLP_Fea_late_view_late_emb" else None,
                 )
 
                 rgb_map = rgb_map + rgb_map_t * blending_weight_chunk[..., None]
                 depth_map = depth_map + depth_map_t * blending_weight_chunk
-                depth_map_gamma = depth_map_gamma + depth_map_gamma_t * blending_weight_chunk
-
-                if is_train and distortion_loss_weight > 0:
-                    dist_loss += eff_distloss_native(weight[:, :-1], distances[:, :-1], dists[:, :-1]) * (
-                        distortion_loss_weight * (self.rf_lr_factor ** self.rf_iter[rf_id]))
 
             rgbs.append(rgb_map)
             depth_maps.append(depth_map)
-            depth_maps_gamma.append(depth_map_gamma)
 
-        rgbs, depth_maps, depth_maps_gamma = torch.cat(rgbs), torch.cat(depth_maps), torch.cat(depth_maps_gamma)
+        rgbs, depth_maps = torch.cat(rgbs), torch.cat(depth_maps)
+        
+        if self.lr_exposure_init > 0:
+            # TODO: cleanup
+            if test_id:
+                view_ids_m = torch.maximum(view_ids - 1, torch.tensor(0, device=view_ids.device))
+                view_ids_m[view_ids_m==view_ids] = 1
+                
+                view_ids_p = torch.minimum(view_ids + 1, torch.tensor(len(self.exposure) - 1, device=view_ids.device))
+                view_ids_p[view_ids_m==view_ids] = len(self.exposure) - 2
+                
+                esposure_stacked = torch.stack(list(self.exposure), dim=0)
+                exposure = (esposure_stacked[view_ids_m] + esposure_stacked[view_ids_p]) / 2  
+            else:
+                exposure = torch.stack(list(self.exposure), dim=0)[view_ids]
+                
+            exposure = exposure.repeat_interleave(ray_ids.shape[0] // view_ids.shape[0], dim=0)
+            rgbs = torch.bmm(exposure, rgbs[..., None])[..., 0]
+            # rgbs = torch.clamp(rgbs, 0, 1)
 
         if is_train:
-            return rgbs, depth_maps, depth_maps_gamma, directions, ij, blending_weights, dist_loss
+            return rgbs, depth_maps, directions, ij, blending_weights
         else:
-            sample = len(alpha) // 2
-            return rgbs, depth_maps, depth_maps_gamma, directions, ij, alpha[sample], T[sample], weight[sample], alpha_gamma[sample], T_gamma[sample], weight_gamma[sample]
+            return rgbs, depth_maps, directions, ij

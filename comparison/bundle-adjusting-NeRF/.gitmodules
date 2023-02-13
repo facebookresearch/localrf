@@ -1,0 +1,3 @@
+[submodule "external/pohsun_ssim"]
+	path = external/pohsun_ssim
+	url = https://github.com/Po-Hsun-Su/pytorch-ssim

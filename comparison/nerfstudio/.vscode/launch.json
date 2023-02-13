@@ -1,0 +1,97 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Chrome against localhost",
+      "request": "launch",
+      "type": "chrome",
+      "url": "http://localhost:4000",
+      "webRoot": "${workspaceFolder}/nerfstudio/viewer/app"
+    },
+    {
+      "name": "Python: Attach using Process ID",
+      "type": "python",
+      "request": "attach",
+      "processId": "${command:pickProcess}",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: train",
+      "type": "python",
+      "request": "launch",
+      "program": "scripts/train.py",
+      "console": "integratedTerminal",
+      "args": [
+        "instant_ngp",
+        "--viewer.no-enable",
+        "--logging.event-writer=wandb"
+      ]
+    },
+    {
+      "name": "Python: train ngp",
+      "type": "python",
+      "request": "launch",
+      "program": "scripts/train.py",
+      "console": "integratedTerminal",
+      "args": ["instant_ngp"]
+    },
+    {
+      "name": "Python: train ngp nerfstudio",
+      "type": "python",
+      "request": "launch",
+      "program": "scripts/train.py",
+      "console": "integratedTerminal",
+      "args": [
+        "instant_ngp",
+        // "--experiment_name=nerfstudio_experiment",
+        "--logging.local-writer.max-log-size=0",
+        "--viewer.no-enable"
+        // viewer
+        // "--viewer.enable",
+        // "--viewer.zmq-url=tcp://127.0.0.1:6001",
+        // "--viewer.websocket-port=8014",
+        // "--pipeline.model.randomize-background",
+        // "--pipeline.model.cone-angle=0.00390625",
+        // "nerfstudio-data"
+      ]
+    },
+    {
+      "name": "Python: train ngp-friends",
+      "type": "python",
+      "request": "launch",
+      "program": "scripts/train.py",
+      "console": "integratedTerminal",
+      "args": [
+        "instant_ngp",
+        "--viewer.enable",
+        "--viewer.zmq-url=tcp://127.0.0.1:6001",
+        "--viewer.websocket-port=8014",
+        "--trainer.steps_per_save=1000000",
+        "--trainer.steps_per_test=1000000",
+        "--pipeline.model.density-field-params.base-scale=4",
+        "--pipeline.model.density-field-params.num-cascades=1",
+        "pipeline.datamanager.train-dataparser:friends-data-parser-config",
+        "--pipeline.datamanager.train-dataparser.scene-scale=4"
+      ]
+    },
+    {
+      "name": "Python: train semantic_nerfw",
+      "type": "python",
+      "request": "launch",
+      "program": "scripts/train.py",
+      "console": "integratedTerminal",
+      "args": ["semantic_nerf"]
+    }
+  ]
+}

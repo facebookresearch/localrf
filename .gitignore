@@ -3,6 +3,9 @@ tmp/
 .DS_Store
 extensions
 checkpoints/
+comparison/FuSta/CVPR2020CODE_yulunliu_modified/baseline-resnet50dilated-ppm_deepsup/*
+comparison/FuSta/CVPR2020CODE_yulunliu_modified/checkpt.pt
+comparison/FuSta/CVPR2020CODE_yulunliu_modified/*.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -133,3 +136,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+comparison/FuSta/FuSta_model/checkpoint/model_epoch050.pth
+comparison/FuSta/FuSta_model/checkpoint/tmp
+comparison/FuSta/raft_models/raft-chairs.pth
+comparison/FuSta/raft_models/raft-kitti.pth
+comparison/FuSta/raft_models/raft-sintel.pth
+comparison/FuSta/raft_models/raft-small.pth
+comparison/FuSta/raft_models/raft-things.pth

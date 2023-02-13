@@ -13,53 +13,6 @@ class TensorVMSplit(TensorBase):
         step = (self.aabb[1, idx] - self.aabb[0, idx] - 2e-6) / (self.gridSize[idx] - 1)
         return torch.arange(1e-6 + self.aabb[0, idx], self.aabb[1, idx] + step - 2e-6, step, device=self.device)
 
-    def resample_VM(self, plane_coef, line_coef, translation):
-        # TODO Handle resolution change
-        # TODO ray type parameter
-        for i in range(len(self.vecMode)):
-            vec_id = self.vecMode[i]
-            vec_coords = self.get_arange(vec_id)
-            vec_coords = torch.stack([torch.zeros_like(vec_coords), vec_coords], dim=-1)
-            vec_coords = vec_coords[None, :, None]
-            uncontract(vec_coords)
-            vec_coords[..., 1] -= translation[vec_id]
-            contract(vec_coords)
-            vec_coords /= 2
-            
-            mat_id_0, mat_id_1 = self.matMode[i]
-            plane_coords = torch.meshgrid(
-                self.get_arange(mat_id_0), 
-                self.get_arange(mat_id_1), 
-                indexing="xy",
-            )
-            plane_coords = torch.stack(plane_coords, dim=-1)[None]
-            uncontract(plane_coords)
-            plane_coords[..., 0] -= translation[mat_id_0]
-            plane_coords[..., 1] -= translation[mat_id_1]
-            contract(plane_coords) 
-            plane_coords /= 2
-
-            plane_coef[i] = F.grid_sample(
-                plane_coef[i].data.detach(),
-                plane_coords,
-                mode="bicubic",
-                align_corners=True,
-            )
-
-            line_coef[i] = F.grid_sample(
-                line_coef[i].data.detach(),
-                vec_coords,
-                mode="bicubic",
-                align_corners=True,
-            )
-
-    @torch.no_grad()
-    def init_from_prev(self, prev_tensorf, translation):
-        self.init_svd_volume(prev_tensorf.gridSize.cpu(), self.device)
-        self.load_state_dict(prev_tensorf.state_dict())
-        self.resample_VM(self.app_plane, self.app_line, translation)
-        self.resample_VM(self.density_plane, self.density_line, translation)
-
     def init_svd_volume(self, res, device):
         self.density_plane, self.density_line = self.init_one_svd(
             self.density_n_comp, res, 0.1, device
@@ -125,41 +78,42 @@ class TensorVMSplit(TensorBase):
     def vector_comp_diffs(self):
         return self.vectorDiffs(self.density_line) + self.vectorDiffs(self.app_line)
 
-    def density_L1(self, vanilla=False, max_samples=10**6):
-        if vanilla:
-            total = 0
-            for idx in range(len(self.density_plane)):
-                total = (
-                    total
-                    + torch.mean((torch.abs(self.density_plane[idx])))
-                    + torch.mean((torch.abs(self.density_line[idx])))
-                )
-            return total
-        else:
-            if torch.prod(self.gridSize) > max_samples:
-                cbrt_max_samples = round(max_samples ** (1/3)) #
-                max_samples = cbrt_max_samples ** 3 #
-                sigma_feature = torch.zeros((max_samples,), device=self.gridSize.device)
-                for idx_plane in range(len(self.density_plane)):
-                    samples_x = torch.randint(self.gridSize[self.matMode[idx_plane][0]], (cbrt_max_samples**2,), device=self.gridSize.device)
-                    samples_y = torch.randint(self.gridSize[self.matMode[idx_plane][1]], (cbrt_max_samples**2,), device=self.gridSize.device)
-                    samples_z = torch.randint(self.gridSize[self.vecMode[idx_plane]], (cbrt_max_samples,), device=self.gridSize.device)
+    def density_L1(self, vanilla=False, max_samples=10**7):
+        # if torch.prod(self.gridSize) > max_samples:
+        #     return 0
+        #     total = 0
+        #     for idx in range(len(self.density_plane)):
+        #         total = (
+        #             total
+        #             + torch.mean((torch.abs(self.density_plane[idx])))
+        #             + torch.mean((torch.abs(self.density_line[idx])))
+        #         )
+        #     return total / 100
+        # else:
+        #     # if torch.prod(self.gridSize) > max_samples:
+        #     #     return 0
+        #     #     cbrt_max_samples = round(max_samples ** (1/3)) #
+        #     #     max_samples = cbrt_max_samples ** 3 #
+        #     #     sigma_feature = torch.zeros((max_samples,), device=self.gridSize.device)
+        #     #     for idx_plane in range(len(self.density_plane)):
+        #     #         samples_x = torch.randint(self.gridSize[self.matMode[idx_plane][0]], (cbrt_max_samples**2,), device=self.gridSize.device)
+        #     #         samples_y = torch.randint(self.gridSize[self.matMode[idx_plane][1]], (cbrt_max_samples**2,), device=self.gridSize.device)
+        #     #         samples_z = torch.randint(self.gridSize[self.vecMode[idx_plane]], (cbrt_max_samples,), device=self.gridSize.device)
 
-                    plane_coef_point = self.density_plane[idx_plane][:, :, samples_x, samples_y].view(-1, cbrt_max_samples**2)
-                    line_coef_point = self.density_line[idx_plane][:, :, samples_z].view(-1, cbrt_max_samples)
-                    # sigma_feature += torch.sum(plane_coef_point * line_coef_point, dim=0)
-                    coef_prod = torch.bmm(plane_coef_point[..., None], line_coef_point[:, None]).view(-1, max_samples) #
-                    sigma_feature += torch.sum(coef_prod, dim=0) #
-            else:
-                sigma_feature = torch.zeros((torch.prod(self.gridSize),), device=self.gridSize.device)
-                for idx_plane in range(len(self.density_plane)):
-                    plane_coef_point = self.density_plane[idx_plane].view(-1, torch.prod(self.gridSize[self.matMode[idx_plane]]))
-                    line_coef_point = self.density_line[idx_plane].view(-1, self.gridSize[self.vecMode[idx_plane]])
-                    coef_prod = torch.bmm(plane_coef_point[..., None], line_coef_point[:, None]).view(-1, torch.prod(self.gridSize))
-                    sigma_feature += torch.sum(coef_prod, dim=0)
+        #     #         plane_coef_point = self.density_plane[idx_plane][:, :, samples_x, samples_y].view(-1, cbrt_max_samples**2)
+        #     #         line_coef_point = self.density_line[idx_plane][:, :, samples_z].view(-1, cbrt_max_samples)
+        #     #         coef_prod = torch.bmm(plane_coef_point[..., None], line_coef_point[:, None]).view(-1, max_samples) #
+        #     #         sigma_feature += torch.sum(coef_prod, dim=0) #
+        #     # else:
+        sigma_feature = torch.zeros((torch.prod(self.gridSize),), device=self.gridSize.device)
+        for idx_plane in range(len(self.density_plane)):
+            plane_coef_point = self.density_plane[idx_plane].view(-1, torch.prod(self.gridSize[self.matMode[idx_plane]]))
+            line_coef_point = self.density_line[idx_plane].view(-1, self.gridSize[self.vecMode[idx_plane]])
+            coef_prod = torch.bmm(plane_coef_point[..., None], line_coef_point[:, None]).view(-1, torch.prod(self.gridSize))
+            sigma_feature += torch.sum(coef_prod, dim=0)
 
-            sigmas = self.feature2density(sigma_feature)
-            return torch.sqrt(sigmas.abs() + 1e-5).mean()
+        sigmas = self.feature2density(sigma_feature)
+        return torch.sqrt(sigmas.abs() + 1e-5).mean()
 
     def TV_loss_density(self, reg):
         total = 0

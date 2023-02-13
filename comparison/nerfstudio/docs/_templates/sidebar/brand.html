@@ -1,0 +1,102 @@
+{#- Hi there! You might be interested in
+https://pradyunsg.me/furo/customisation/sidebar/ Although if you're reading
+this, chances are that you're either familiar enough with Sphinx that you know
+what you're doing, or landed here from that documentation page. Hope your day's
+going well. :) -#}
+<a
+  class="sidebar-brand{% if logo %} centered{% endif %}"
+  href="{{ pathto(master_doc) }}"
+>
+  {% block brand_content %} {%- if logo_url %}
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="{{ logo_url }}" alt="Logo" />
+  </div>
+  {%- endif %} {%- if theme_light_logo and theme_dark_logo %}
+  <div class="sidebar-logo-container">
+    <img
+      class="sidebar-logo only-light"
+      src="{{ pathto('_static/' + theme_light_logo, 1) }}"
+      alt="Light Logo"
+    />
+    <img
+      class="sidebar-logo only-dark"
+      src="{{ pathto('_static/' + theme_dark_logo, 1) }}"
+      alt="Dark Logo"
+    />
+  </div>
+  {%- endif %} {#- {% if not theme_sidebar_hide_name %}
+  <span class="sidebar-brand-text"
+    >{{ docstitle if docstitle else project }}</span
+  >
+  {%- endif %} -#} {% endblock brand_content %}
+</a>
+
+<div style="text-align: center">
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+  <!-- Place this tag where you want the button to render. -->
+  <a
+    class="github-button"
+    href="https://github.com/nerfstudio-project/nerfstudio/"
+    data-color-scheme="no-preference: light; light: light; dark: light;"
+    data-size="large"
+    data-show-count="true"
+    aria-label="Download buttons/github-buttons on GitHub"
+  >
+    Github
+  </a>
+  <br />
+  <a
+    href="https://colab.research.google.com/github/nerfstudio-project/nerfstudio/blob/main/colab/demo.ipynb"
+    style="
+      background-color: #ebf0f4;
+      background-image: linear-gradient(180deg, #f6f8fa, #ebf0f4 90%);
+      border-radius: 3px;
+      border: 1px solid #1b1f2426;
+      display: inline-flex;
+      cursor: pointer;
+      color: #0d0d0d;
+      font-family: Arial;
+      font-size: 12px;
+      font-weight: bold;
+      padding: 5px 41px;
+      line-height: 16px;
+      text-decoration: none;
+    "
+  >
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      class="octicon octicon-mark-github"
+    >
+      <g>
+        <path
+          d="M4.54,9.46,2.19,7.1a6.93,6.93,0,0,0,0,9.79l2.36-2.36A3.59,3.59,0,0,1,4.54,9.46Z"
+          style=""
+          fill="#E8710A"
+        ></path>
+        <path
+          d="M2.19,7.1,4.54,9.46a3.59,3.59,0,0,1,5.08,0l1.71-2.93h0l-.1-.08h0A6.93,6.93,0,0,0,2.19,7.1Z"
+          style=""
+          fill="#F9AB00"
+        ></path>
+        <path
+          d="M11.34,17.46h0L9.62,14.54a3.59,3.59,0,0,1-5.08,0L2.19,16.9a6.93,6.93,0,0,0,9,.65l.11-.09"
+          style=""
+          fill="#F9AB00"
+        ></path>
+        <path
+          d="M12,7.1a6.93,6.93,0,0,0,0,9.79l2.36-2.36a3.59,3.59,0,1,1,5.08-5.08L21.81,7.1A6.93,6.93,0,0,0,12,7.1Z"
+          style=""
+          fill="#F9AB00"
+        ></path>
+        <path
+          d="M21.81,7.1,19.46,9.46a3.59,3.59,0,0,1-5.08,5.08L12,16.9A6.93,6.93,0,0,0,21.81,7.1Z"
+          style=""
+          fill="#E8710A"
+        ></path>
+      </g>
+    </svg>
+    <span>&nbspcolab</span></a
+  >
+</div>

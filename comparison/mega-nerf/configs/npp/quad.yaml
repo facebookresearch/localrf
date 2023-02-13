@@ -1,0 +1,6 @@
+val_scale_factor: 1
+no_ellipse_bounds: true
+appearance_dim: 0
+use_cascade: true
+layer_dim: 2048
+bg_layer_dim: 2048

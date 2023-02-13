@@ -1,0 +1,44 @@
+name: Core Tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.7.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.7.13'
+      - uses: actions/cache@v2
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
+      - name: Install dependencies
+        run: |
+          pip install --upgrade --upgrade-strategy eager -e .[dev]
+      - name: Run license checks
+        run: |
+          ./scripts/licensing/license_headers.sh --check
+      - name: Check notebook cell metadata
+        run: |
+          python ./scripts/docs/add_nb_tags.py --check
+      - name: Run isort
+        run: isort docs/ nerfstudio/ scripts/ tests/ --profile black --check
+      - name: Run Black
+        run: black docs/ nerfstudio/ scripts/ tests/ --check
+      - name: Python Pylint
+        run: |
+          pylint nerfstudio tests scripts
+      - name: Test with pytest
+        run: |
+          pytest

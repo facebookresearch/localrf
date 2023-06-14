@@ -1,0 +1,6 @@
+[submodule "DPT"]
+	path = DPT
+	url = https://github.com/isl-org/DPT.git
+[submodule "RAFT"]
+	path = RAFT
+	url = https://github.com/princeton-vl/RAFT.git

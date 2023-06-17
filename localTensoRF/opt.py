@@ -50,13 +50,13 @@ def config_parser(cmd=None):
         "--lr_decay_target_ratio",
         type=float,
         default=0.1,
-        help="the target decay ratio; after decay_iters inital lr decays to lr*ratio",
+        help="the target decay ratio; after decay_iters initial lr decays to lr*ratio",
     )
     parser.add_argument(
         "--lr_upsample_reset",
         type=int,
         default=1,
-        help="reset lr to inital after upsampling",
+        help="reset lr to initial after upsampling",
     )
 
     # losses

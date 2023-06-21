@@ -46,7 +46,7 @@ def save_transforms(poses_mtx, transform_path, local_tensorfs, train_dataset=Non
     if train_dataset is not None:
         fbases = train_dataset.all_fbases
     else:
-        fbases = [f"{i:06d}.jpg" for i in range(len(poses_mtx))]
+        fbases = [f"{i:06d}" for i in range(len(poses_mtx))]
 
     fl = local_tensorfs.focal(local_tensorfs.W).item()
     transforms = {

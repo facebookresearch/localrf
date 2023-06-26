@@ -18,6 +18,7 @@ def render(
     poses_mtx,
     local_tensorfs,
     args,
+    W, H,
     frame_indices=None,
     savePath=None,
     save_video=False,
@@ -30,13 +31,9 @@ def render(
     save_raw_depth=False,
     start=0,
     floater_thresh=0,
-    ds_ratio=1,
 ):
     rgb_maps_tb, depth_maps_tb, gt_rgbs_tb, poses_vis = [], [], [], []
     fwd_flow_cmp_tb, bwd_flow_cmp_tb, depth_cmp_tb = [], [], []
-    W, H = test_dataset.img_wh
-    W = int(W / ds_ratio)
-    H = int(H / ds_ratio)
 
     if test:
         idxs = [train_dataset.all_fbases[fbase] for fbase in test_dataset.all_fbases]
@@ -56,7 +53,7 @@ def render(
     N_rays_all = W * H
     rays_ids = torch.arange(N_rays_all, dtype=torch.long, device=poses_mtx.device)
     metrics = {}
-    print(f"Render {len(idxs)} frame with {ds_ratio} downsampling")
+    print(f"Render {len(idxs)} frame with size {W} x {H}")
     for i, idx in tqdm(enumerate(idxs)):
         torch.cuda.empty_cache()
         if frame_indices is None:
@@ -154,8 +151,7 @@ def render(
         if test:
             fbase = train_dataset.get_frame_fbase(idx)
             gt_rgb = test_dataset.all_rgbs[test_dataset.all_fbases[fbase]]
-            if ds_ratio != 1:
-                gt_rgb = cv2.resize(gt_rgb, None, fx=1/ds_ratio, fy=1/ds_ratio)
+            gt_rgb = cv2.resize(gt_rgb, (W, H))
             gt_rgb = torch.from_numpy(gt_rgb)
             gt_rgbs_tb.append(torch.Tensor(gt_rgb))  # HWC
             mse = ((gt_rgb - rgb_map) ** 2).mean()

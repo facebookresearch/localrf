@@ -119,7 +119,6 @@ def config_parser(cmd=None):
     parser.add_argument("--render_only", type=int, default=0)
     parser.add_argument("--render_test", type=int, default=1)
     parser.add_argument("--render_path", type=int, default=1)
-    parser.add_argument("--export_mesh", type=int, default=0)
 
     # rendering options
     parser.add_argument("--fea2denseAct", type=str, default="softplus")
@@ -177,6 +176,7 @@ def config_parser(cmd=None):
     parser.add_argument("--update_AlphaMask_list", type=int, default=[300], nargs='+')
 
     parser.add_argument("--subsequence", default=[0, -1], type=int, nargs=2)
+    parser.add_argument("--test_frame_every", default=10, type=int, help="Every test_frame_every-th frame is a test frame.")
     # logging/saving options
     parser.add_argument(
         "--vis_every", type=int, default=10000, help="Frequency of visualize the test images."

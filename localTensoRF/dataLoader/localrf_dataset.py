@@ -33,7 +33,7 @@ class LocalRFDataset(Dataset):
         with_GT_poses=False,
         n_init_frames=7,
         subsequence=[0, -1],
-        test_skip=10
+        test_frame_every=10
     ):
         """
         spheric_poses: whether the images are taken in a spheric inward-facing manner
@@ -41,7 +41,6 @@ class LocalRFDataset(Dataset):
         val_num: number of val images (used for multigpu training, validate same image for all gpus)
         """
 
-        self.test_skip = test_skip
         self.root_dir = datadir
         self.split = split
         self.frames_chunk = max(frames_chunk, n_init_frames)
@@ -64,14 +63,11 @@ class LocalRFDataset(Dataset):
             for idx in range(len(poses)):
                 if idx == 0:
                     pose = np.eye(4, dtype=np.float32)
-                    # pose = poses[idx].copy() # TODO f
                 else:
                     pose = np.linalg.inv(poses[idx - 1]) @ poses[idx]
                 self.rel_poses.append(pose)
             self.rel_poses = np.stack(self.rel_poses, axis=0) 
 
-            # TODO f
-            # scale = 0.33
             scale = 2e-2 / np.median(np.linalg.norm(self.rel_poses[:, :3, 3], axis=-1))
             self.rel_poses[:, :3, 3] *= scale
 
@@ -87,7 +83,7 @@ class LocalRFDataset(Dataset):
         for idx, image_path in enumerate(self.image_paths):
             fbase = os.path.splitext(image_path)[0]
             index = int(fbase) if fbase.isnumeric() else idx
-            if index % test_skip == 0:
+            if test_frame_every > 0 and index % test_frame_every == 0:
                 self.test_paths.append(image_path)
                 self.test_mask.append(1)
             else:
@@ -267,38 +263,6 @@ class LocalRFDataset(Dataset):
 
     def get_frame_fbase(self, view_id):
         return list(self.all_fbases.keys())[view_id]
-
-    # TODO: Remove
-    def get_gt_frame(self, view_ids):
-        W, H = self.img_wh
-        idx = np.arange(W * H, dtype=np.int64)
-        idx = idx + view_ids * self.n_px_per_frame
-
-        idx_sample = idx - self.active_frames_bounds[0] * self.n_px_per_frame
-        idx_sample[idx_sample < 0] = 0
-
-        if self.load_flow:
-            fwd_mask = self.all_fwd_mask[idx_sample].reshape(len(view_ids), -1)
-            fwd_mask[view_ids==self.active_frames_bounds[1] - 1, ...] = 0
-            fwd_mask = fwd_mask.reshape(-1, 1)
-        else:
-            fwd_mask = None
-
-
-        frame = {
-            "rgbs": self.all_rgbs[idx_sample], 
-            "laplacian": self.laplacian[idx_sample], 
-            "invdepths": self.all_invdepths[idx_sample] if self.load_depth else None,
-            "fwd_flow": self.all_fwd_flow[idx_sample] if self.load_flow else None,
-            "fwd_mask": fwd_mask,
-            "bwd_flow": self.all_bwd_flow[idx_sample] if self.load_flow else None,
-            "bwd_mask": self.all_bwd_mask[idx_sample] if self.load_flow else None,
-        }
-        for key in frame:
-            if frame[key] is not None:
-                frame[key] = frame[key].reshape(H, W, -1)
-
-        return frame
 
     def sample(self, batch_size, is_refining, optimize_poses, n_views=16):
         active_test_mask = self.test_mask[self.active_frames_bounds[0] : self.active_frames_bounds[1]]

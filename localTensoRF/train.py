@@ -26,22 +26,6 @@ from utils.utils import (N_to_reso, TVLoss, draw_poses, get_pred_flow,
                          convert_sdf_samples_to_ply, compute_depth_loss)
 
 
-@torch.no_grad()
-def export_mesh(args):
-
-    ckpt = None
-    with open(args.ckpt, "rb") as f:
-        ckpt = torch.load(f, map_location=args.device)
-    kwargs = ckpt["kwargs"]
-    kwargs.update({"device": args.device})
-    tensorf = eval(args.model_name)(**kwargs)
-    tensorf.load(ckpt)
-
-    alpha, _ = tensorf.getDenseAlpha()
-    convert_sdf_samples_to_ply(
-        alpha.cpu(), f"{args.ckpt[:-3]}.ply", bbox=tensorf.aabb.cpu(), level=0.005
-    )
-
 def save_transforms(poses_mtx, transform_path, local_tensorfs, train_dataset=None):
     if train_dataset is not None:
         fbases = train_dataset.all_fbases
@@ -78,12 +62,14 @@ def save_transforms(poses_mtx, transform_path, local_tensorfs, train_dataset=Non
 
 @torch.no_grad()
 def render_frames(
-    args, poses_mtx, local_tensorfs, logfolder, test_dataset=None, train_dataset=None
+    args, poses_mtx, local_tensorfs, logfolder, test_dataset, train_dataset
 ):
     save_transforms(poses_mtx.cpu(), f"{logfolder}/transforms.json", local_tensorfs, train_dataset)
     t_w2rf = torch.stack(list(local_tensorfs.world2rf), dim=0).detach().cpu()
     RF_mtx_inv = torch.cat([torch.stack(len(t_w2rf) * [torch.eye(3)]), t_w2rf.clone()[..., None]], axis=-1)
     save_transforms(RF_mtx_inv.cpu(), f"{logfolder}/transforms_rf.json", local_tensorfs)
+    
+    W, H = train_dataset.img_wh
 
     if args.render_test:
         render(
@@ -91,6 +77,7 @@ def render_frames(
             poses_mtx,
             local_tensorfs,
             args,
+            W=W, H=H,
             savePath=f"{logfolder}/test",
             save_frames=True,
             test=True,
@@ -108,13 +95,13 @@ def render_frames(
             c2ws,
             local_tensorfs,
             args,
+            W=int(W / 1.5), H=int(H / 1.5),
             savePath=f"{logfolder}/smooth_spline",
             train_dataset=train_dataset,
             img_format="jpg",
             save_frames=True,
             save_video=True,
             floater_thresh=0.5,
-            ds_ratio=1.5,
         )
 
 @torch.no_grad()
@@ -124,6 +111,7 @@ def render_test(args):
         f"{args.datadir}",
         split="train",
         downsampling=args.downsampling,
+        test_frame_every=args.test_frame_every,
         n_init_frames=args.n_init_frames,
         subsequence=args.subsequence,
         with_GT_poses=args.with_GT_poses,
@@ -131,7 +119,10 @@ def render_test(args):
     test_dataset = LocalRFDataset(
         f"{args.datadir}",
         split="test",
+        load_depth=True,
+        load_flow=True,
         downsampling=args.downsampling,
+        test_frame_every=args.test_frame_every,
         subsequence=args.subsequence,
         with_GT_poses=args.with_GT_poses,
     )
@@ -181,6 +172,7 @@ def reconstruction(args):
         f"{args.datadir}",
         split="train",
         downsampling=args.downsampling,
+        test_frame_every=args.test_frame_every,
         load_depth=args.loss_depth_weight_inital > 0,
         load_flow=args.loss_flow_weight_inital > 0,
         with_GT_poses=args.with_GT_poses,
@@ -193,6 +185,7 @@ def reconstruction(args):
         load_depth=True,
         load_flow=True,
         downsampling=args.downsampling,
+        test_frame_every=args.test_frame_every,
         with_GT_poses=args.with_GT_poses,
         subsequence=args.subsequence,
     )
@@ -498,22 +491,20 @@ def reconstruction(args):
             print(f"Iteration {iteration:06d}: {ips:.2f} it/s")
             start_time = time.time()
 
-        if (
-            iteration % args.vis_every == args.vis_every - 1
-        ):
+        if (iteration % args.vis_every == args.vis_every - 1):
             poses_mtx = local_tensorfs.get_cam2world().detach()
             rgb_maps_tb, depth_maps_tb, gt_rgbs_tb, fwd_flow_cmp_tb, bwd_flow_cmp_tb, depth_err_tb, loc_metrics = render(
                 test_dataset,
                 poses_mtx,
                 local_tensorfs,
                 args,
+                W=W // 2, H=H // 2,
                 savePath=logfolder,
                 save_frames=True,
                 img_format="jpg",
                 test=True,
                 train_dataset=train_dataset,
                 start=train_dataset.active_frames_bounds[0],
-                ds_ratio=2,
             )
 
             if len(loc_metrics.values()):
@@ -599,9 +590,6 @@ if __name__ == "__main__":
 
     args = config_parser()
     print(args)
-
-    if args.export_mesh:
-        export_mesh(args)
 
     if args.render_only and (args.render_test or args.render_path):
         render_test(args)

@@ -35,10 +35,8 @@ def config_parser(cmd=None):
 
     # loader options
     parser.add_argument("--batch_size", type=int, default=4096)
-    parser.add_argument("--n_iters_per_frame", type=int, default=600)
-    parser.add_argument("--n_iters_reg", type=int, default=300)
 
-    # training options
+    ## training options
     # learning rate
     parser.add_argument("--lr_R_init", type=float, default=5e-3, help="Rotation learning rate")
     parser.add_argument("--lr_t_init", type=float, default=5e-4, help="Translation learning rate")
@@ -58,6 +56,54 @@ def config_parser(cmd=None):
         default=1,
         help="reset lr to initial after upsampling",
     )
+
+    # Basic scheduling options
+    parser.add_argument("--N_voxel_init", type=int, default=64**3)
+    parser.add_argument("--N_voxel_final", type=int, default=640**3)
+    parser.add_argument("--n_iters_per_frame", type=int, default=600)
+    parser.add_argument("--n_iters_reg", type=int, default=100)
+    parser.add_argument(
+        "--upsamp_list", 
+        type=int, 
+        default=[100, 150, 200, 250, 300],
+        nargs='+')
+    parser.add_argument("--update_AlphaMask_list", type=int, default=[100, 200, 300], nargs='+')
+    parser.add_argument("--refinement_speedup_factor", type=float, default=1.0, 
+                        help="Divides number of iterations in scheduling. Does not apply to progressive optimization.")
+
+    # Progressive optimization scheduling options
+    parser.add_argument(
+        "--n_init_frames",
+        type=int,
+        default=5,
+        help="Number of initial frames for the first RF optimization",
+    )
+    parser.add_argument(
+        "--max_drift",
+        type=float,
+        default=1,
+        help="Create a new RF once the camera pose shifts this amount w.r.t the last created RF",
+    )
+    parser.add_argument(
+        "--n_max_frames",
+        type=int,
+        default=100,
+        help="Maximum number of frames added before optimizing a new RF",
+    )
+    parser.add_argument(
+        "--add_frames_every",
+        type=int,
+        default=100,
+        help="Number of iterations before adding another frame",
+    )
+    parser.add_argument(
+        "--n_overlap",
+        type=int,
+        default=30,
+        help="Number of frames supervising two neighbour RFs",
+    )
+    parser.add_argument("--prog_speedup_factor", type=float, default=1.0, 
+                        help="Divides number of iterations in progressive optimization scheduling. Multiplies pose lr.")
 
     # losses
     parser.add_argument("--loss_depth_weight_inital", type=float, default=0.1)
@@ -130,50 +176,9 @@ def config_parser(cmd=None):
     )
     parser.add_argument("--step_ratio", type=float, default=0.5)
 
-    # Progressive optimization
-    parser.add_argument(
-        "--n_init_frames",
-        type=int,
-        default=5,
-        help="Number of initial frames for the first RF optimization",
-    )
-    parser.add_argument(
-        "--max_drift",
-        type=float,
-        default=1,
-        help="Create a new RF once the camera pose shifts this ammount w.r.t the last created RF",
-    )
-    parser.add_argument(
-        "--n_max_frames",
-        type=int,
-        default=100,
-        help="Maximum number of frames aded before optimizing a new RF",
-    )
-    parser.add_argument(
-        "--add_frames_every",
-        type=int,
-        default=100,
-        help="Number of iterations before adding another frame",
-    )
-    parser.add_argument(
-        "--n_overlap",
-        type=int,
-        default=30,
-        help="Number of frames supervising two neighbour RFs",
-    )
-
     # Camera model options
     parser.add_argument("--fov", type=float, default=85.6, help="horizontal FoV in degree")
     parser.add_argument("--with_GT_poses", type=int, default=0)
-
-    parser.add_argument("--N_voxel_init", type=int, default=64**3)
-    parser.add_argument("--N_voxel_final", type=int, default=640**3)
-    parser.add_argument(
-        "--upsamp_list", 
-        type=int, 
-        default=[100, 150, 200, 250, 300],
-        nargs='+')
-    parser.add_argument("--update_AlphaMask_list", type=int, default=[300], nargs='+')
 
     parser.add_argument("--subsequence", default=[0, -1], type=int, nargs=2)
     parser.add_argument("--test_frame_every", default=10, type=int, help="Every test_frame_every-th frame is a test frame.")

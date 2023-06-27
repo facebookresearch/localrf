@@ -167,6 +167,21 @@ def render_test(args):
 
 
 def reconstruction(args):
+    # Apply speedup factors
+    args.n_iters_per_frame = int(args.n_iters_per_frame / args.refinement_speedup_factor)
+    args.n_iters_reg = int(args.n_iters_reg / args.refinement_speedup_factor)
+    args.upsamp_list = [int(upsamp / args.refinement_speedup_factor) for upsamp in args.upsamp_list]
+    args.update_AlphaMask_list = [int(update_AlphaMask / args.refinement_speedup_factor) 
+                                  for update_AlphaMask in args.update_AlphaMask_list]
+    
+    args.add_frames_every = int(args.add_frames_every / args.prog_speedup_factor)
+    args.lr_R_init = args.lr_R_init * args.prog_speedup_factor
+    args.lr_t_init = args.lr_t_init * args.prog_speedup_factor
+    args.loss_flow_weight_inital = args.loss_flow_weight_inital * args.prog_speedup_factor
+    args.L1_weight = args.L1_weight * args.prog_speedup_factor
+    args.TV_weight_density = args.TV_weight_density * args.prog_speedup_factor
+    args.TV_weight_app = args.TV_weight_app * args.prog_speedup_factor
+    
     # init dataset
     train_dataset = LocalRFDataset(
         f"{args.datadir}",
@@ -289,7 +304,6 @@ def reconstruction(args):
     training = True
     n_added_frames = 0
     last_add_iter = 0
-    last_add_rf_iter = 0
     iteration = 0
     metrics = {}
     start_time = time.time()
@@ -398,8 +412,6 @@ def reconstruction(args):
 
             should_add_frame &= not should_refine
             should_add_frame &= not local_tensorfs.is_refining
-            if last_add_rf_iter != 0:
-                should_add_frame &= (iteration - last_add_rf_iter) > (args.add_frames_every * args.n_overlap)
             # Add supervising frames
             if should_add_frame:
                 local_tensorfs.append_frame()

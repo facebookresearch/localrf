@@ -28,9 +28,9 @@ from utils.utils import (N_to_reso, TVLoss, draw_poses, get_pred_flow,
 
 def save_transforms(poses_mtx, transform_path, local_tensorfs, train_dataset=None):
     if train_dataset is not None:
-        fbases = train_dataset.all_fbases
+        fnames = train_dataset.all_image_paths
     else:
-        fbases = [f"{i:06d}" for i in range(len(poses_mtx))]
+        fnames = [f"{i:06d}.jpg" for i in range(len(poses_mtx))]
 
     fl = local_tensorfs.focal(local_tensorfs.W).item()
     transforms = {
@@ -46,11 +46,11 @@ def save_transforms(poses_mtx, transform_path, local_tensorfs, train_dataset=Non
         "h": local_tensorfs.H,
         "frames": [],
     }
-    for pose_mtx, fbase in zip(poses_mtx, fbases):
+    for pose_mtx, fname in zip(poses_mtx, fnames):
         pose = np.eye(4, dtype=np.float32)
         pose[:3, :] = pose_mtx
         frame_data = {
-            "file_path": f"images/{fbase}.jpg",
+            "file_path": f"images/{fname}",
             "sharpness": 75.0,
             "transform_matrix": pose.tolist(),
         }
@@ -113,8 +113,9 @@ def render_test(args):
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
         n_init_frames=args.n_init_frames,
-        subsequence=args.subsequence,
         with_GT_poses=args.with_GT_poses,
+        subsequence=args.subsequence,
+        frame_step=args.frame_step,
     )
     test_dataset = LocalRFDataset(
         f"{args.datadir}",
@@ -123,8 +124,9 @@ def render_test(args):
         load_flow=True,
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
-        subsequence=args.subsequence,
         with_GT_poses=args.with_GT_poses,
+        subsequence=args.subsequence,
+        frame_step=args.frame_step,
     )
 
     if args.ckpt is None:
@@ -193,6 +195,7 @@ def reconstruction(args):
         with_GT_poses=args.with_GT_poses,
         n_init_frames=args.n_init_frames,
         subsequence=args.subsequence,
+        frame_step=args.frame_step,
     )
     test_dataset = LocalRFDataset(
         f"{args.datadir}",
@@ -203,6 +206,7 @@ def reconstruction(args):
         test_frame_every=args.test_frame_every,
         with_GT_poses=args.with_GT_poses,
         subsequence=args.subsequence,
+        frame_step=args.frame_step,
     )
     near_far = train_dataset.near_far
 

@@ -181,6 +181,7 @@ def config_parser(cmd=None):
     parser.add_argument("--with_GT_poses", type=int, default=0)
 
     parser.add_argument("--subsequence", default=[0, -1], type=int, nargs=2)
+    parser.add_argument('--frame_step', type=int, default=1, help="Step between retained frames")
     parser.add_argument("--test_frame_every", default=10, type=int, help="Every test_frame_every-th frame is a test frame.")
     # logging/saving options
     parser.add_argument(

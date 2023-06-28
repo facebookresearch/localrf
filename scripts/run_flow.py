@@ -47,6 +47,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', default='/data/forest1')
     parser.add_argument('--scale', type=float, default=0.5)
+    parser.add_argument('--frame_step', type=int, default=1, help="Step between retained frames")
     parser.add_argument('--device_ids', type=int, default=[0], nargs='+')
     parser.add_argument('--raft_model', default='models/raft-things.pth', help="[RAFT] restore checkpoint")
     parser.add_argument('--small', action='store_true', help='[RAFT] use small model')
@@ -62,6 +63,7 @@ if __name__ == '__main__':
 
     # Read and preprocess the video
     input_files = sorted(os.listdir(f"{args.data_dir}/images"))
+    input_files = input_files[::args.frame_step]
     os.makedirs(f"{args.data_dir}/flow_ds", exist_ok=True)
     os.makedirs(f"{args.data_dir}/flow_vis", exist_ok=True)
     prev_frame_torch = None
@@ -92,6 +94,8 @@ if __name__ == '__main__':
 
         # Save flow
         fbase = os.path.splitext(filename)[0]
+        if args.frame_step != 1:
+            fbase = f"step{args.frame_step}_{fbase}"
         cv2.imwrite(f"{args.data_dir}/flow_ds/fwd_{fbase}.png", encode_flow(fwd_flow, mask_fwd))
         cv2.imwrite(f"{args.data_dir}/flow_ds/bwd_{fbase}.png", encode_flow(bwd_flow, mask_bwd))
         cv2.imwrite(f"{args.data_dir}/flow_vis/fwd_{fbase}.jpg", flow_viz.flow_to_image(fwd_flow))

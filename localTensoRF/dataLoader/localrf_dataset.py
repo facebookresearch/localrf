@@ -33,20 +33,16 @@ class LocalRFDataset(Dataset):
         with_GT_poses=False,
         n_init_frames=7,
         subsequence=[0, -1],
-        test_frame_every=10
+        test_frame_every=10,
+        frame_step=1,
     ):
-        """
-        spheric_poses: whether the images are taken in a spheric inward-facing manner
-                       default: False (forward-facing)
-        val_num: number of val images (used for multigpu training, validate same image for all gpus)
-        """
-
         self.root_dir = datadir
         self.split = split
         self.frames_chunk = max(frames_chunk, n_init_frames)
         self.downsampling = downsampling
         self.load_depth = load_depth
         self.load_flow = load_flow
+        self.frame_step = frame_step
 
         if with_GT_poses:
             with open(os.path.join(self.root_dir, "transforms.json"), 'r') as f:
@@ -70,12 +66,14 @@ class LocalRFDataset(Dataset):
 
             scale = 2e-2 / np.median(np.linalg.norm(self.rel_poses[:, :3, 3], axis=-1))
             self.rel_poses[:, :3, 3] *= scale
+            self.rel_poses = self.rel_poses[::frame_step]
 
         else:
             self.image_paths = sorted(os.listdir(os.path.join(self.root_dir, "images")))
         if subsequence != [0, -1]:
             self.image_paths = self.image_paths[subsequence[0]:subsequence[1]]
 
+        self.image_paths = self.image_paths[::frame_step]
         self.all_image_paths = self.image_paths
 
         self.test_mask = []
@@ -170,10 +168,16 @@ class LocalRFDataset(Dataset):
                     fwd_flow_path = self.all_image_paths[glob_idx+1]
                 else:
                     fwd_flow_path = self.all_image_paths[0]
-                fwd_flow_path = os.path.join(self.root_dir, "flow_ds", 
-                    f"fwd_{os.path.splitext(fwd_flow_path)[0]}.png")
-                bwd_flow_path = os.path.join(self.root_dir, "flow_ds", 
-                    f"bwd_{os.path.splitext(self.image_paths[i])[0]}.png")
+                if self.frame_step != 1:
+                    fwd_flow_path = os.path.join(self.root_dir, "flow_ds", 
+                        f"fwd_step{self.frame_step}_{os.path.splitext(fwd_flow_path)[0]}.png")
+                    bwd_flow_path = os.path.join(self.root_dir, "flow_ds", 
+                        f"bwd_step{self.frame_step}_{os.path.splitext(self.image_paths[i])[0]}.png")
+                else:
+                    fwd_flow_path = os.path.join(self.root_dir, "flow_ds", 
+                        f"fwd_{os.path.splitext(fwd_flow_path)[0]}.png")
+                    bwd_flow_path = os.path.join(self.root_dir, "flow_ds", 
+                        f"bwd_{os.path.splitext(self.image_paths[i])[0]}.png")
                 encoded_fwd_flow = cv2.imread(fwd_flow_path, cv2.IMREAD_UNCHANGED)
                 encoded_bwd_flow = cv2.imread(bwd_flow_path, cv2.IMREAD_UNCHANGED)
                 flow_scale = img.shape[0] / encoded_fwd_flow.shape[0] 

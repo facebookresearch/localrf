@@ -549,6 +549,10 @@ class TensorBase(torch.nn.Module):
 
         return alpha
 
+    def to(self, device):
+        self.device = torch.device(device)
+        return super(TensorBase, self).to(device)
+
     def forward(
         self,
         rays_chunk,

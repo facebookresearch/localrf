@@ -68,7 +68,7 @@ class LocalTensorfs(torch.nn.Module):
         self.rf_lr_init, self.rf_lr_basis, self.lr_decay_target_ratio = rf_lr_init, rf_lr_basis, lr_decay_target_ratio
         self.N_voxel_per_frame_list = N_voxel_list
         self.update_AlphaMask_per_frame_list = update_AlphaMask_list
-        self.device = device
+        self.device = torch.device(device)
         self.camera_prior = camera_prior
         self.tensorf_args = tensorf_args
         self.is_refining = False
@@ -129,6 +129,8 @@ class LocalTensorfs(torch.nn.Module):
                 requires_grad=False,
             )
             world2rf = -self.t_c2w[-1].clone().detach()
+            self.tensorfs[-1].to(torch.device("cpu"))
+            torch.cuda.empty_cache()
         else:
             world2rf = torch.zeros(3, device=self.device)
 
@@ -419,11 +421,16 @@ class LocalTensorfs(torch.nn.Module):
             return torch.ones([ray_ids.shape[0], 3]), torch.ones_like(ray_ids).float(), torch.ones_like(ray_ids).float(), directions, ij
 
         cam2rfs = {}
+        initial_devices = []
         for rf_id in active_rf_ids:
             cam2rf = cam2world.clone()
             cam2rf[:, :3, 3] += world2rf[rf_id]
 
             cam2rfs[rf_id] = cam2rf
+            
+            initial_devices.append(self.tensorfs[rf_id].device)
+            if initial_devices[-1] != view_ids.device:
+                self.tensorfs[rf_id].to(view_ids.device)
 
         for key in cam2rfs:
             cam2rfs[key] = cam2rfs[key].repeat_interleave(ray_ids.shape[0] // view_ids.shape[0], dim=0)
@@ -464,6 +471,11 @@ class LocalTensorfs(torch.nn.Module):
                     depth_maps[chunk_idx * chunk : (chunk_idx + 1) * chunk] + 
                     depth_map_t * blending_weight_chunk
                 )
+
+        for rf_id, initial_device in zip(active_rf_ids, initial_devices):
+            if initial_device != view_ids.device:
+                self.tensorfs[rf_id].to(initial_device)
+                torch.cuda.empty_cache()
 
         if self.lr_exposure_init > 0:
             # TODO: cleanup

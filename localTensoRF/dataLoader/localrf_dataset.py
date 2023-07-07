@@ -102,7 +102,7 @@ class LocalRFDataset(Dataset):
         self.all_rgbs = None
         self.all_invdepths = None
         self.all_fwd_flow, self.all_fwd_mask, self.all_bwd_flow, self.all_bwd_mask = None, None, None, None
-        self.laplacian, self.all_motion_mask = None, None
+        self.all_loss_weights = None
 
         self.active_frames_bounds = [0, 0]
         self.loaded_frames = 0
@@ -135,16 +135,15 @@ class LocalRFDataset(Dataset):
             self.all_fwd_mask = self.all_fwd_mask[n_frames * self.n_px_per_frame:]
             self.all_bwd_flow = self.all_bwd_flow[n_frames * self.n_px_per_frame:]
             self.all_bwd_mask = self.all_bwd_mask[n_frames * self.n_px_per_frame:]
-        self.laplacian = self.laplacian[n_frames * self.n_px_per_frame:]
-        self.all_motion_mask = self.all_motion_mask[n_frames * self.n_px_per_frame:]
+        self.all_loss_weights = self.all_loss_weights[n_frames * self.n_px_per_frame:]
 
 
 
     def read_meta(self):
         def read_image(i):
             image_path = os.path.join(self.root_dir, "images", self.image_paths[i])
-            motion_mask_path = os.path.join(self.root_dir, "motion_masks", 
-                f"{os.path.splitext(self.image_paths[i])[0][1:]}.png")
+            motion_mask_path = os.path.join(self.root_dir, "masks", 
+                f"{os.path.splitext(self.image_paths[i])[0]}.png")
 
             img = cv2.imread(image_path)[..., ::-1]
             img = img.astype(np.float32) / 255
@@ -193,13 +192,12 @@ class LocalRFDataset(Dataset):
                 fwd_flow, fwd_mask, bwd_flow, bwd_mask = None, None, None, None
 
             if os.path.isfile(motion_mask_path):
-                motion_mask = cv2.imread(motion_mask_path, cv2.IMREAD_UNCHANGED)
-                if len(motion_mask.shape) != 2:
-                    motion_mask = motion_mask[..., 0]
-                motion_mask = cv2.dilate(motion_mask, np.ones([5, 5]))
-                motion_mask = cv2.resize(motion_mask, tuple(img.shape[1::-1]), interpolation=cv2.INTER_AREA) > 0
+                mask = cv2.imread(motion_mask_path, cv2.IMREAD_UNCHANGED)
+                if len(mask.shape) != 2:
+                    mask = mask[..., 0]
+                mask = cv2.resize(mask, tuple(img.shape[1::-1]), interpolation=cv2.INTER_AREA) > 0
             else:
-                motion_mask = np.zeros_like(img[..., 0])
+                mask = None
 
             return {
                 "img": img, 
@@ -208,7 +206,7 @@ class LocalRFDataset(Dataset):
                 "fwd_mask": fwd_mask,
                 "bwd_flow": bwd_flow,
                 "bwd_mask": bwd_mask,
-                "motion_mask": motion_mask,
+                "mask": mask,
             }
 
         n_frames_to_load = min(self.frames_chunk, self.num_images - self.loaded_frames)
@@ -222,14 +220,15 @@ class LocalRFDataset(Dataset):
         all_fwd_mask = [data["fwd_mask"] for data in all_data]
         all_bwd_flow = [data["bwd_flow"] for data in all_data]
         all_bwd_mask = [data["bwd_mask"] for data in all_data]
-        all_motion_mask = [data["motion_mask"] for data in all_data]
+        all_mask = [data["mask"] for data in all_data]
 
-        laplacian = [
+        all_laplacian = [
                 np.ones_like(img[..., 0]) * cv2.Laplacian(
                             cv2.cvtColor((img*255).astype(np.uint8), cv2.COLOR_RGB2GRAY), cv2.CV_32F
                         ).var()
             for img in all_rgbs
         ]
+        all_loss_weights = [laplacian if mask is None else laplacian * mask for laplacian, mask in zip(all_laplacian, all_mask)]
 
         self.img_wh = list(all_rgbs[0].shape[1::-1])
         self.n_px_per_frame = self.img_wh[0] * self.img_wh[1]
@@ -252,8 +251,7 @@ class LocalRFDataset(Dataset):
                 self.all_fwd_mask = concatenate_append(self.all_fwd_mask, all_fwd_mask, 1)
                 self.all_bwd_flow = concatenate_append(self.all_bwd_flow, all_bwd_flow, 2)
                 self.all_bwd_mask = concatenate_append(self.all_bwd_mask, all_bwd_mask, 1)
-            self.laplacian = concatenate_append(self.laplacian, laplacian, 1)
-            self.all_motion_mask = concatenate_append(self.all_motion_mask, all_motion_mask, 1)
+            self.all_loss_weights = concatenate_append(self.all_loss_weights, all_loss_weights, 1)
 
 
     def __len__(self):
@@ -302,13 +300,12 @@ class LocalRFDataset(Dataset):
 
         return {
             "rgbs": self.all_rgbs[idx_sample], 
-            "laplacian": self.laplacian[idx_sample], 
+            "loss_weights": self.all_loss_weights[idx_sample], 
             "invdepths": self.all_invdepths[idx_sample] if self.load_depth else None,
             "fwd_flow": self.all_fwd_flow[idx_sample] if self.load_flow else None,
             "fwd_mask": self.all_fwd_mask[idx_sample] if self.load_flow else None,
             "bwd_flow": self.all_bwd_flow[idx_sample] if self.load_flow else None,
             "bwd_mask": self.all_bwd_mask[idx_sample] if self.load_flow else None,
-            "motion_mask": self.all_motion_mask[idx_sample],
             "idx": idx,
             "view_ids": view_ids,
             "train_test_poses": train_test_poses,

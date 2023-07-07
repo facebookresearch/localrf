@@ -316,10 +316,8 @@ def reconstruction(args):
         data_blob = train_dataset.sample(args.batch_size, local_tensorfs.is_refining, optimize_poses)
         view_ids = torch.from_numpy(data_blob["view_ids"]).to(args.device)
         rgb_train = torch.from_numpy(data_blob["rgbs"]).to(args.device)
-        laplacian = torch.from_numpy(data_blob["laplacian"]).to(args.device)
-        motion_mask = torch.from_numpy(data_blob["motion_mask"]).to(args.device)
+        loss_weights = torch.from_numpy(data_blob["loss_weights"]).to(args.device)
         train_test_poses = data_blob["train_test_poses"]
-        bg_mask = (motion_mask == 0).float()
         ray_idx = torch.from_numpy(data_blob["idx"]).to(args.device)
         reg_loss_weight = local_tensorfs.lr_factor ** (local_tensorfs.rf_iter[-1])
 
@@ -333,9 +331,7 @@ def reconstruction(args):
         )
 
         # loss
-        rgb_loss_weights = laplacian * bg_mask
-
-        loss = 0.25 * ((torch.abs(rgb_map - rgb_train)) * rgb_loss_weights) / rgb_loss_weights.mean()
+        loss = 0.25 * ((torch.abs(rgb_map - rgb_train)) * loss_weights) / loss_weights.mean()
                
         loss = loss.mean()
         total_loss = loss
@@ -345,7 +341,7 @@ def reconstruction(args):
         # Get rendered rays schedule
         if local_tensorfs.regularize and args.loss_flow_weight_inital > 0 or args.loss_depth_weight_inital > 0:
             depth_map = depth_map.view(view_ids.shape[0], -1)
-            bg_mask = bg_mask.view(view_ids.shape[0], -1)
+            loss_weights = loss_weights.view(view_ids.shape[0], -1)
             depth_map = depth_map.view(view_ids.shape[0], -1)
 
             writer.add_scalar("train/reg_loss_weights", reg_loss_weight, global_step=iteration)

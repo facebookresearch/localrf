@@ -367,8 +367,7 @@ def reconstruction(args):
                 pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H)
             flow_loss_arr =  torch.sum(torch.abs(pred_bwd_flow - bwd_flow), dim=-1) * bwd_mask
             flow_loss_arr += torch.sum(torch.abs(pred_fwd_flow - fwd_flow), dim=-1) * fwd_mask
-            flow_loss_arr[flow_loss_arr > torch.quantile(flow_loss_arr, 0.5, dim=1)[..., None]] = 0
-            flow_loss_arr[flow_loss_arr > 100] = 0
+            flow_loss_arr[flow_loss_arr > torch.quantile(flow_loss_arr, 0.9, dim=1)[..., None]] = 0
 
             flow_loss = (flow_loss_arr).mean() * args.loss_flow_weight_inital * reg_loss_weight / ((W + H) / 2)
             total_loss = total_loss + flow_loss

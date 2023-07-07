@@ -8,7 +8,7 @@ from models.tensorBase import AlphaGridMask
 from models.tensoRF import TensorVMSplit
 
 from utils.utils import mtx_to_sixD, sixD_to_mtx
-from utils.ray_utils import get_ray_directions_lean, get_rays_lean
+from utils.ray_utils import get_ray_directions_lean, get_rays_lean, get_ray_directions_360
 from utils.utils import N_to_reso
 
 def ids2pixel_view(W, H, ids):
@@ -397,7 +397,10 @@ class LocalTensorfs(torch.nn.Module):
         floater_thresh=0,
     ):
         i, j = ids2pixel(W, H, ray_ids)
-        directions = get_ray_directions_lean(i, j, self.focal(W), self.center(W, H))
+        if self.fov == 360:
+            directions = get_ray_directions_360(i, j, W, H)
+        else:
+            directions = get_ray_directions_lean(i, j, self.focal(W), self.center(W, H))
 
         if blending_weights is None:
             blending_weights = self.blending_weights[view_ids].clone()

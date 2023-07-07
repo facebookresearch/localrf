@@ -120,8 +120,8 @@ def render_test(args):
     test_dataset = LocalRFDataset(
         f"{args.datadir}",
         split="test",
-        load_depth=True,
-        load_flow=True,
+        load_depth=args.loss_depth_weight_inital > 0,
+        load_flow=args.loss_flow_weight_inital > 0,
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
         with_GT_poses=args.with_GT_poses,
@@ -200,8 +200,8 @@ def reconstruction(args):
     test_dataset = LocalRFDataset(
         f"{args.datadir}",
         split="test",
-        load_depth=True,
-        load_flow=True,
+        load_depth=args.loss_depth_weight_inital > 0,
+        load_flow=args.loss_flow_weight_inital > 0,
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
         with_GT_poses=args.with_GT_poses,
@@ -365,11 +365,14 @@ def reconstruction(args):
                        
             pts = directions * depth_map[..., None]
             center = [W / 2, H / 2]
-            pred_fwd_flow = get_pred_flow(pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center)
-            pred_bwd_flow = get_pred_flow(pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center)
+            pred_fwd_flow = get_pred_flow(
+                pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H)
+            pred_bwd_flow = get_pred_flow(
+                pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H)
             flow_loss_arr =  torch.sum(torch.abs(pred_bwd_flow - bwd_flow), dim=-1) * bwd_mask
             flow_loss_arr += torch.sum(torch.abs(pred_fwd_flow - fwd_flow), dim=-1) * fwd_mask
-            flow_loss_arr[flow_loss_arr > torch.quantile(flow_loss_arr, 0.9, dim=1)[..., None]] = 0
+            flow_loss_arr[flow_loss_arr > torch.quantile(flow_loss_arr, 0.5, dim=1)[..., None]] = 0
+            flow_loss_arr[flow_loss_arr > 100] = 0
 
             flow_loss = (flow_loss_arr).mean() * args.loss_flow_weight_inital * reg_loss_weight / ((W + H) / 2)
             total_loss = total_loss + flow_loss
@@ -565,26 +568,28 @@ def reconstruction(args):
                     dataformats="NHWC",
                 )
                 
-                writer.add_images(
-                    "test/fwd_flow_cmp",
-                    torch.stack(fwd_flow_cmp_tb, 0)[..., None],
-                    global_step=iteration,
-                    dataformats="NHWC",
-                )
+                if len(fwd_flow_cmp_tb) > 0:
+                    writer.add_images(
+                        "test/fwd_flow_cmp",
+                        torch.stack(fwd_flow_cmp_tb, 0)[..., None],
+                        global_step=iteration,
+                        dataformats="NHWC",
+                    )
+                    
+                    writer.add_images(
+                        "test/bwd_flow_cmp",
+                        torch.stack(bwd_flow_cmp_tb, 0)[..., None],
+                        global_step=iteration,
+                        dataformats="NHWC",
+                    )
                 
-                writer.add_images(
-                    "test/bwd_flow_cmp",
-                    torch.stack(bwd_flow_cmp_tb, 0)[..., None],
-                    global_step=iteration,
-                    dataformats="NHWC",
-                )
-                
-                writer.add_images(
-                    "test/depth_cmp",
-                    torch.stack(depth_err_tb, 0)[..., None],
-                    global_step=iteration,
-                    dataformats="NHWC",
-                )
+                if len(depth_err_tb) > 0:
+                    writer.add_images(
+                        "test/depth_cmp",
+                        torch.stack(depth_err_tb, 0)[..., None],
+                        global_step=iteration,
+                        dataformats="NHWC",
+                    )
 
             with open(f"{logfolder}/checkpoints_tmp.th", "wb") as f:
                 local_tensorfs.save(f)

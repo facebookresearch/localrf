@@ -78,47 +78,49 @@ def render(
         if test:
             fbase = train_dataset.get_frame_fbase(idx)
             # Flow render
-            view_ids = torch.Tensor([idx]).to(depth_map).long()
-            cam2world = local_tensorfs.get_cam2world()
-            fwd_cam2cams, bwd_cam2cams = get_fwd_bwd_cam2cams(cam2world, view_ids)
-            pts = directions[None] * depth_map[None, ..., None]
-            center = local_tensorfs.center(W, H)
-            pred_fwd_flow = get_pred_flow(pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center).cpu().numpy()
-            pred_bwd_flow = get_pred_flow(pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center).cpu().numpy()
-            pred_fwd_flow, pred_bwd_flow = pred_fwd_flow.reshape(H, W, 2), pred_bwd_flow.reshape(H, W, 2)
-            fwd_flow = cv2.resize(test_dataset.all_fwd_flow[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST) 
-            fwd_mask = cv2.resize(test_dataset.all_fwd_mask[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)
-            bwd_flow = cv2.resize(test_dataset.all_bwd_flow[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)
-            bwd_mask = cv2.resize(test_dataset.all_bwd_mask[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)
-            fwd_flow_cmp0 = np.vstack([pred_fwd_flow[..., 0], fwd_flow[..., 0]])
-            fwd_flow_cmp0 /= np.quantile(fwd_flow_cmp0, 0.9)
-            fwd_flow_err0 = np.abs(pred_fwd_flow[..., 0] - fwd_flow[..., 0]) * fwd_mask / W
-            fwd_flow_cmp0 = np.vstack([fwd_flow_cmp0, fwd_flow_err0])
-            fwd_flow_cmp1 = np.vstack([pred_fwd_flow[..., 1], fwd_flow[..., 1]])
-            fwd_flow_cmp1 /= np.quantile(fwd_flow_cmp1, 0.9)
-            fwd_flow_err1 = np.abs(pred_fwd_flow[..., 1] - fwd_flow[..., 1]) * fwd_mask / W
-            fwd_flow_cmp1 = np.vstack([fwd_flow_cmp1, fwd_flow_err1])
-            fwd_flow_cmp = np.hstack([fwd_flow_cmp0, fwd_flow_cmp1])
+            if test_dataset.all_fwd_flow is not None:
+                view_ids = torch.Tensor([idx]).to(depth_map).long()
+                cam2world = local_tensorfs.get_cam2world()
+                fwd_cam2cams, bwd_cam2cams = get_fwd_bwd_cam2cams(cam2world, view_ids)
+                pts = directions[None] * depth_map[None, ..., None]
+                center = local_tensorfs.center(W, H)
+                pred_fwd_flow = get_pred_flow(pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H).cpu().numpy()
+                pred_bwd_flow = get_pred_flow(pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center,  args.fov == 360, W, H).cpu().numpy()
+                pred_fwd_flow, pred_bwd_flow = pred_fwd_flow.reshape(H, W, 2), pred_bwd_flow.reshape(H, W, 2)
+                fwd_flow = cv2.resize(test_dataset.all_fwd_flow[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST) 
+                fwd_mask = cv2.resize(test_dataset.all_fwd_mask[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)
+                bwd_flow = cv2.resize(test_dataset.all_bwd_flow[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)
+                bwd_mask = cv2.resize(test_dataset.all_bwd_mask[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)
+                fwd_flow_cmp0 = np.vstack([pred_fwd_flow[..., 0], fwd_flow[..., 0]])
+                fwd_flow_cmp0 /= np.quantile(fwd_flow_cmp0, 0.9)
+                fwd_flow_err0 = np.abs(pred_fwd_flow[..., 0] - fwd_flow[..., 0]) * fwd_mask / W
+                fwd_flow_cmp0 = np.vstack([fwd_flow_cmp0, fwd_flow_err0])
+                fwd_flow_cmp1 = np.vstack([pred_fwd_flow[..., 1], fwd_flow[..., 1]])
+                fwd_flow_cmp1 /= np.quantile(fwd_flow_cmp1, 0.9)
+                fwd_flow_err1 = np.abs(pred_fwd_flow[..., 1] - fwd_flow[..., 1]) * fwd_mask / W
+                fwd_flow_cmp1 = np.vstack([fwd_flow_cmp1, fwd_flow_err1])
+                fwd_flow_cmp = np.hstack([fwd_flow_cmp0, fwd_flow_cmp1])
 
-            bwd_flow_cmp0 = np.vstack([pred_bwd_flow[..., 0], bwd_flow[..., 0]])
-            bwd_flow_cmp0 /= np.quantile(bwd_flow_cmp0, 0.9)
-            bwd_flow_err0 = np.abs(pred_bwd_flow[..., 0] - bwd_flow[..., 0]) * bwd_mask / W
-            bwd_flow_cmp0 = np.vstack([bwd_flow_cmp0, bwd_flow_err0])
-            bwd_flow_cmp1 = np.vstack([pred_bwd_flow[..., 1], bwd_flow[..., 1]])
-            bwd_flow_cmp1 /= np.quantile(bwd_flow_cmp1, 0.9)
-            bwd_flow_err1 = np.abs(pred_bwd_flow[..., 1] - bwd_flow[..., 1]) * bwd_mask / W
-            bwd_flow_cmp1 = np.vstack([bwd_flow_cmp1, bwd_flow_err1])
-            bwd_flow_cmp = np.hstack([bwd_flow_cmp0, bwd_flow_cmp1])
-            fwd_flow_cmp_tb.append(torch.from_numpy(fwd_flow_cmp).clamp(0, 1))
-            bwd_flow_cmp_tb.append(torch.from_numpy(bwd_flow_cmp).clamp(0, 1))
+                bwd_flow_cmp0 = np.vstack([pred_bwd_flow[..., 0], bwd_flow[..., 0]])
+                bwd_flow_cmp0 /= np.quantile(bwd_flow_cmp0, 0.9)
+                bwd_flow_err0 = np.abs(pred_bwd_flow[..., 0] - bwd_flow[..., 0]) * bwd_mask / W
+                bwd_flow_cmp0 = np.vstack([bwd_flow_cmp0, bwd_flow_err0])
+                bwd_flow_cmp1 = np.vstack([pred_bwd_flow[..., 1], bwd_flow[..., 1]])
+                bwd_flow_cmp1 /= np.quantile(bwd_flow_cmp1, 0.9)
+                bwd_flow_err1 = np.abs(pred_bwd_flow[..., 1] - bwd_flow[..., 1]) * bwd_mask / W
+                bwd_flow_cmp1 = np.vstack([bwd_flow_cmp1, bwd_flow_err1])
+                bwd_flow_cmp = np.hstack([bwd_flow_cmp0, bwd_flow_cmp1])
+                fwd_flow_cmp_tb.append(torch.from_numpy(fwd_flow_cmp).clamp(0, 1))
+                bwd_flow_cmp_tb.append(torch.from_numpy(bwd_flow_cmp).clamp(0, 1))
 
             # Depth error
-            invdepths = torch.from_numpy(cv2.resize(test_dataset.all_invdepths[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)).to(args.device)
-            invdepths = invdepths.view(1, -1)
-            dyn_depth_norm, gt_depth_norm, depth_loss_arr = compute_depth_loss(1 / depth_map[None].clamp(1e-6), invdepths)
+            if test_dataset.all_invdepths is not None:
+                invdepths = torch.from_numpy(cv2.resize(test_dataset.all_invdepths[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)).to(args.device)
+                invdepths = invdepths.view(1, -1)
+                dyn_depth_norm, gt_depth_norm, depth_loss_arr = compute_depth_loss(1 / depth_map[None].clamp(1e-6), invdepths)
 
-            depth_cmp = torch.vstack([0.5 * dyn_depth_norm[0].reshape(H, W), 0.5 * gt_depth_norm[0].reshape(H, W), depth_loss_arr[0].reshape(H, W)])
-            depth_cmp_tb.append(depth_cmp.clamp(0, 1))
+                depth_cmp = torch.vstack([0.5 * dyn_depth_norm[0].reshape(H, W), 0.5 * gt_depth_norm[0].reshape(H, W), depth_loss_arr[0].reshape(H, W)])
+                depth_cmp_tb.append(depth_cmp.clamp(0, 1))
 
         # RGB and depth visualization
         rgb_map, depth_map = rgb_map.reshape(H, W, 3), depth_map.reshape(H, W)

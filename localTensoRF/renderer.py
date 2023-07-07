@@ -84,8 +84,8 @@ def render(
                 fwd_cam2cams, bwd_cam2cams = get_fwd_bwd_cam2cams(cam2world, view_ids)
                 pts = directions[None] * depth_map[None, ..., None]
                 center = local_tensorfs.center(W, H)
-                pred_fwd_flow = get_pred_flow(pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H).cpu().numpy()
-                pred_bwd_flow = get_pred_flow(pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center,  args.fov == 360, W, H).cpu().numpy()
+                pred_fwd_flow = get_pred_flow(pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center).cpu().numpy()
+                pred_bwd_flow = get_pred_flow(pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center).cpu().numpy()
                 pred_fwd_flow, pred_bwd_flow = pred_fwd_flow.reshape(H, W, 2), pred_bwd_flow.reshape(H, W, 2)
                 fwd_flow = cv2.resize(test_dataset.all_fwd_flow[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST) 
                 fwd_mask = cv2.resize(test_dataset.all_fwd_mask[test_dataset.all_fbases[fbase]], (W, H), interpolation=cv2.INTER_NEAREST)

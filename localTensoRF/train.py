@@ -23,7 +23,7 @@ from opt import config_parser
 from renderer import render
 from utils.utils import (get_fwd_bwd_cam2cams, smooth_poses_spline)
 from utils.utils import (N_to_reso, TVLoss, draw_poses, get_pred_flow,
-                         convert_sdf_samples_to_ply, compute_depth_loss)
+                         compute_depth_loss)
 
 
 def save_transforms(poses_mtx, transform_path, local_tensorfs, train_dataset=None):
@@ -348,6 +348,8 @@ def reconstruction(args):
 
         # Optical flow
         if local_tensorfs.regularize and args.loss_flow_weight_inital > 0:
+            if args.fov == 360:
+                raise NotImplementedError
             starting_frame_id = max(train_dataset.active_frames_bounds[0] - 1, 0)
             cam2world = local_tensorfs.get_cam2world(starting_id=starting_frame_id)
             directions = directions.view(view_ids.shape[0], -1, 3)
@@ -360,11 +362,10 @@ def reconstruction(args):
             fwd_cam2cams, bwd_cam2cams = get_fwd_bwd_cam2cams(cam2world, view_ids - starting_frame_id)
                        
             pts = directions * depth_map[..., None]
-            center = [W / 2, H / 2]
             pred_fwd_flow = get_pred_flow(
-                pts, ij, fwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H)
+                pts, ij, fwd_cam2cams, local_tensorfs.focal(W), local_tensorfs.center(W, H))
             pred_bwd_flow = get_pred_flow(
-                pts, ij, bwd_cam2cams, local_tensorfs.focal(W), center, args.fov == 360, W, H)
+                pts, ij, bwd_cam2cams, local_tensorfs.focal(W), local_tensorfs.center(W, H))
             flow_loss_arr =  torch.sum(torch.abs(pred_bwd_flow - bwd_flow), dim=-1) * bwd_mask
             flow_loss_arr += torch.sum(torch.abs(pred_fwd_flow - fwd_flow), dim=-1) * fwd_mask
             flow_loss_arr[flow_loss_arr > torch.quantile(flow_loss_arr, 0.9, dim=1)[..., None]] = 0
@@ -375,6 +376,8 @@ def reconstruction(args):
 
         # Monocular Depth 
         if local_tensorfs.regularize and args.loss_depth_weight_inital > 0:
+            if args.fov == 360:
+                raise NotImplementedError
             invdepths = torch.from_numpy(data_blob["invdepths"]).to(args.device)
             invdepths = invdepths.view(view_ids.shape[0], -1)
             _, _, depth_loss_arr = compute_depth_loss(1 / depth_map.clamp(1e-6), invdepths)

@@ -17,17 +17,9 @@ def pts2px(pts, f, center):
     pts[..., 2] = -pts[..., 2]
     pts[..., 2] = torch.clip(pts[..., 2].clone(), min=1e-6)
     return torch.stack(
-        [pts[..., 0] / pts[..., 2] * f + center[0], pts[..., 1] / pts[..., 2] * f + center[1]], 
+        [pts[..., 0] / pts[..., 2] * f + center[0] - 0.5, pts[..., 1] / pts[..., 2] * f + center[1] - 0.5], 
         dim=-1)
     
-def pts2px360(pts, W, H):
-    pts = pts / torch.clip(torch.norm(pts.clone(), dim=-1)[..., None], min=1e-5)
-    phi = torch.arcsin(pts[..., 1])
-    theta = torch.arctan2(pts[..., 0], pts[..., 2])
-    j = (phi + torch.pi / 2.) / (torch.pi / H) - 0.5
-    i = (theta + torch.pi) / (2. * torch.pi / W) - 0.5
-    return torch.stack([i, j], dim=-1)
-
 def inverse_pose(pose):
     pose_inv = torch.zeros_like(pose)
     pose_inv[:, :3, :3] = torch.transpose(pose[:, :3, :3], 1, 2)
@@ -48,13 +40,10 @@ def get_fwd_bwd_cam2cams(cam2worlds, indices):
     bwd_cam2cams = get_cam2cams(cam2worlds, indices, -1)
     return fwd_cam2cams, bwd_cam2cams
 
-def get_pred_flow(pts, ij, cam2cams, focal, center, is_360, W, H):
+def get_pred_flow(pts, ij, cam2cams, focal, center):
     new_pts = torch.transpose(torch.bmm(cam2cams[:, :3, :3], torch.transpose(pts, 1, 2)), 1, 2)
     new_pts = new_pts + cam2cams[:, None, :3, 3]
-    if is_360:
-        new_ij = pts2px360(new_pts, W, H)
-    else:
-        new_ij = pts2px(new_pts, focal, center)
+    new_ij = pts2px(new_pts, focal, center)
 
     return new_ij - ij.float()
 

@@ -104,6 +104,28 @@ def render_frames(
             floater_thresh=0.5,
         )
 
+    if args.render_from_file != "":
+        with open(args.render_from_file, 'r') as f:
+            transforms = json.load(f)
+        c2ws = [transform["transform_matrix"] for transform in transforms["frames"]]
+        c2ws = torch.tensor(c2ws).to(args.device)
+        c2ws = c2ws[..., :3, :]
+        save_path = f"{logfolder}/{os.path.splitext(os.path.basename(args.render_from_file))[0]}"
+        os.makedirs(save_path, exist_ok=True)
+        render(
+            test_dataset,
+            c2ws,
+            local_tensorfs,
+            args,
+            W=W, H=H,
+            savePath=save_path,
+            train_dataset=train_dataset,
+            img_format="jpg",
+            save_frames=True,
+            save_video=True,
+            floater_thresh=0.5,
+        )
+
 @torch.no_grad()
 def render_test(args):
     # init dataset
@@ -610,7 +632,7 @@ if __name__ == "__main__":
     args = config_parser()
     print(args)
 
-    if args.render_only and (args.render_test or args.render_path):
+    if args.render_only:
         render_test(args)
     else:
         reconstruction(args)

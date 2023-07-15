@@ -135,7 +135,7 @@ def render_test(args):
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
         n_init_frames=args.n_init_frames,
-        with_GT_poses=args.with_GT_poses,
+        with_preprocessed_poses=args.with_preprocessed_poses,
         subsequence=args.subsequence,
         frame_step=args.frame_step,
     )
@@ -146,7 +146,7 @@ def render_test(args):
         load_flow=args.loss_flow_weight_inital > 0,
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
-        with_GT_poses=args.with_GT_poses,
+        with_preprocessed_poses=args.with_preprocessed_poses,
         subsequence=args.subsequence,
         frame_step=args.frame_step,
     )
@@ -167,7 +167,7 @@ def render_test(args):
     with open(ckpt_path, "rb") as f:
         ckpt = torch.load(f, map_location=args.device)
     kwargs = ckpt["kwargs"]
-    if args.with_GT_poses:
+    if args.with_preprocessed_poses:
         kwargs["camera_prior"] = {
             "rel_poses": torch.from_numpy(train_dataset.rel_poses).to(args.device),
             "transforms": train_dataset.transforms
@@ -214,7 +214,7 @@ def reconstruction(args):
         test_frame_every=args.test_frame_every,
         load_depth=args.loss_depth_weight_inital > 0,
         load_flow=args.loss_flow_weight_inital > 0,
-        with_GT_poses=args.with_GT_poses,
+        with_preprocessed_poses=args.with_preprocessed_poses,
         n_init_frames=args.n_init_frames,
         subsequence=args.subsequence,
         frame_step=args.frame_step,
@@ -226,7 +226,7 @@ def reconstruction(args):
         load_flow=args.loss_flow_weight_inital > 0,
         downsampling=args.downsampling,
         test_frame_every=args.test_frame_every,
-        with_GT_poses=args.with_GT_poses,
+        with_preprocessed_poses=args.with_preprocessed_poses,
         subsequence=args.subsequence,
         frame_step=args.frame_step,
     )
@@ -274,7 +274,7 @@ def reconstruction(args):
         usamp_idx: round(N_voxel**(1/3))**3 for usamp_idx, N_voxel in zip(upsamp_list, N_voxel_list)
     }
 
-    if args.with_GT_poses:
+    if args.with_preprocessed_poses:
         camera_prior = {
             "rel_poses": torch.from_numpy(train_dataset.rel_poses).to(args.device),
             "transforms": train_dataset.transforms

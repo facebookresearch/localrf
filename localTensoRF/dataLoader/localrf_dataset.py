@@ -30,7 +30,7 @@ class LocalRFDataset(Dataset):
         downsampling=-1,
         load_depth=False,
         load_flow=False,
-        with_GT_poses=False,
+        with_preprocessed_poses=False,
         n_init_frames=7,
         subsequence=[0, -1],
         test_frame_every=10,
@@ -44,7 +44,7 @@ class LocalRFDataset(Dataset):
         self.load_flow = load_flow
         self.frame_step = frame_step
 
-        if with_GT_poses:
+        if with_preprocessed_poses:
             with open(os.path.join(self.root_dir, "transforms.json"), 'r') as f:
                 self.transforms = json.load(f)
             self.image_paths = [os.path.basename(frame_meta["file_path"]) for frame_meta in self.transforms["frames"]]

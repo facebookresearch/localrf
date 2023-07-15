@@ -179,7 +179,7 @@ def config_parser(cmd=None):
 
     # Camera model options
     parser.add_argument("--fov", type=float, default=85.6, help="horizontal FoV in degree")
-    parser.add_argument("--with_GT_poses", type=int, default=0)
+    parser.add_argument("--with_preprocessed_poses", type=int, default=0)
 
     parser.add_argument("--subsequence", default=[0, -1], type=int, nargs=2)
     parser.add_argument('--frame_step', type=int, default=1, help="Step between retained frames")

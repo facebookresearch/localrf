@@ -144,6 +144,9 @@ class LocalRFDataset(Dataset):
             image_path = os.path.join(self.root_dir, "images", self.image_paths[i])
             motion_mask_path = os.path.join(self.root_dir, "masks", 
                 f"{os.path.splitext(self.image_paths[i])[0]}.png")
+            if not os.path.isfile(motion_mask_path):
+                motion_mask_path = os.path.join(self.root_dir, "masks/all.png")
+
 
             img = cv2.imread(image_path)[..., ::-1]
             img = img.astype(np.float32) / 255

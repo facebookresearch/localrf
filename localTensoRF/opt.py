@@ -165,7 +165,7 @@ def config_parser(cmd=None):
     parser.add_argument("--render_only", type=int, default=0)
     parser.add_argument("--render_test", type=int, default=1)
     parser.add_argument("--render_path", type=int, default=1)
-    parser.add_argument("--render_from_file", type=str, default="")
+    parser.add_argument("--render_from_file", type=str, default="", help="to load camera poses and render from them: https://github.com/facebookresearch/localrf/issues/20")
 
     # rendering options
     parser.add_argument("--fea2denseAct", type=str, default="softplus")

@@ -548,7 +548,7 @@ def reconstruction(args):
                 test=True,
                 train_dataset=train_dataset,
                 start=train_dataset.active_frames_bounds[0],
-                add_frame_to_list=args.skip_TB_images,
+                add_frame_to_list=args.skip_TB_images, # default True if not set, will be False if set. 
             )
 
             if len(loc_metrics.values()):
@@ -574,7 +574,7 @@ def reconstruction(args):
                     global_step=iteration
                 )
 
-                if args.skip_TB_images:
+                if args.skip_TB_images: # default True if not set, will be False if set.
                     writer.add_images(
                         "test/rgb_maps",
                         torch.stack(rgb_maps_tb, 0),
@@ -616,6 +616,10 @@ def reconstruction(args):
                             global_step=iteration,
                             dataformats="NHWC",
                         )
+
+                    # Clear all TensorBoard's lists
+                    for list_tb in [rgb_maps_tb, depth_maps_tb, gt_rgbs_tb, fwd_flow_cmp_tb, bwd_flow_cmp_tb, depth_err_tb]:
+                        list_tb.clear()
 
             with open(f"{logfolder}/checkpoints_tmp.th", "wb") as f:
                 local_tensorfs.save(f)

@@ -21,7 +21,7 @@ def render(
     W, H,
     frame_indices=None,
     savePath=None,
-    save_video=False,
+    save_video=False, # Set False to save RAM
     save_frames=False,
     test=False,
     train_dataset=None,
@@ -31,6 +31,7 @@ def render(
     save_raw_depth=False,
     start=0,
     floater_thresh=0,
+    add_frame_to_list=True, # Set False to save RAM. Set True for Tensorboard.
 ):
     rgb_maps_tb, depth_maps_tb, gt_rgbs_tb, poses_vis = [], [], [], []
     fwd_flow_cmp_tb, bwd_flow_cmp_tb, depth_cmp_tb = [], [], []
@@ -75,7 +76,7 @@ def render(
             floater_thresh=floater_thresh,
         )              
         
-        if test:
+        if test and add_frame_to_list:
             fbase = train_dataset.get_frame_fbase(idx)
             # Flow render
             if test_dataset.all_fwd_flow is not None:
@@ -110,8 +111,8 @@ def render(
                 bwd_flow_err1 = np.abs(pred_bwd_flow[..., 1] - bwd_flow[..., 1]) * bwd_mask / W
                 bwd_flow_cmp1 = np.vstack([bwd_flow_cmp1, bwd_flow_err1])
                 bwd_flow_cmp = np.hstack([bwd_flow_cmp0, bwd_flow_cmp1])
-                fwd_flow_cmp_tb.append(torch.from_numpy(fwd_flow_cmp).clamp(0, 1))
-                bwd_flow_cmp_tb.append(torch.from_numpy(bwd_flow_cmp).clamp(0, 1))
+                fwd_flow_cmp_tb.append(torch.from_numpy(fwd_flow_cmp).clamp(0, 1)) # Only need this one for TensorBoard
+                bwd_flow_cmp_tb.append(torch.from_numpy(bwd_flow_cmp).clamp(0, 1)) # Only need this one for TensorBoard
 
             # Depth error
             if test_dataset.all_invdepths is not None:
@@ -120,7 +121,7 @@ def render(
                 dyn_depth_norm, gt_depth_norm, depth_loss_arr = compute_depth_loss(1 / depth_map[None].clamp(1e-6), invdepths)
 
                 depth_cmp = torch.vstack([0.5 * dyn_depth_norm[0].reshape(H, W), 0.5 * gt_depth_norm[0].reshape(H, W), depth_loss_arr[0].reshape(H, W)])
-                depth_cmp_tb.append(depth_cmp.clamp(0, 1))
+                depth_cmp_tb.append(depth_cmp.clamp(0, 1)) # Only need this one for TensorBoard
 
         # RGB and depth visualization
         rgb_map, depth_map = rgb_map.reshape(H, W, 3), depth_map.reshape(H, W)
@@ -144,18 +145,20 @@ def render(
         colours = ["C1"] * poses_mtx.shape[0] + ["C2"]
         pose_vis = draw_poses(all_poses.cpu(), colours)
         pose_vis = cv2.resize(pose_vis, (int(pose_vis.shape[1] * rgb_map.shape[0] / pose_vis.shape[0]), rgb_map.shape[0]))
-
         depth_map_vis = torch.permute(depth_map_vis.detach().cpu() * 255, [1, 2, 0]).byte()
-        rgb_maps_tb.append(rgb_map)  # HWC
-        depth_maps_tb.append(depth_map_vis)  # HWC
-        poses_vis.append(pose_vis)
+        if add_frame_to_list or (save_video and savePath is not None):
+            rgb_maps_tb.append(rgb_map)  # HWC
+            depth_maps_tb.append(depth_map_vis)  # HWC
+            poses_vis.append(pose_vis)
 
         if test:
             fbase = train_dataset.get_frame_fbase(idx)
             gt_rgb = test_dataset.all_rgbs[test_dataset.all_fbases[fbase]]
             gt_rgb = cv2.resize(gt_rgb, (W, H))
             gt_rgb = torch.from_numpy(gt_rgb)
-            gt_rgbs_tb.append(torch.Tensor(gt_rgb))  # HWC
+            if add_frame_to_list:
+                gt_rgbs_tb.append(torch.Tensor(gt_rgb))  # HWC
+
             mse = ((gt_rgb - rgb_map) ** 2).mean()
             ssim = rgb_ssim(gt_rgb.numpy(), rgb_map.numpy(), 1)
             metrics[fbase] = {

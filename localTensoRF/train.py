@@ -80,6 +80,8 @@ def render_frames(
             W=W, H=H,
             savePath=f"{logfolder}/test",
             save_frames=True,
+            save_video=False,
+            add_frame_to_list=False,
             test=True,
             train_dataset=train_dataset,
             img_format="png",
@@ -100,7 +102,8 @@ def render_frames(
             train_dataset=train_dataset,
             img_format="jpg",
             save_frames=True,
-            save_video=True,
+            save_video=args.skip_saving_video,
+            add_frame_to_list=False,
             floater_thresh=0.5,
         )
 
@@ -122,7 +125,8 @@ def render_frames(
             train_dataset=train_dataset,
             img_format="jpg",
             save_frames=True,
-            save_video=True,
+            save_video=args.skip_saving_video,
+            add_frame_to_list=False,
             floater_thresh=0.5,
         )
 
@@ -544,6 +548,7 @@ def reconstruction(args):
                 test=True,
                 train_dataset=train_dataset,
                 start=train_dataset.active_frames_bounds[0],
+                add_frame_to_list=args.skip_TB_images,
             )
 
             if len(loc_metrics.values()):
@@ -569,47 +574,48 @@ def reconstruction(args):
                     global_step=iteration
                 )
 
-                writer.add_images(
-                    "test/rgb_maps",
-                    torch.stack(rgb_maps_tb, 0),
-                    global_step=iteration,
-                    dataformats="NHWC",
-                )
-                writer.add_images(
-                    "test/depth_map",
-                    torch.stack(depth_maps_tb, 0),
-                    global_step=iteration,
-                    dataformats="NHWC",
-                )
-                writer.add_images(
-                    "test/gt_maps",
-                    torch.stack(gt_rgbs_tb, 0),
-                    global_step=iteration,
-                    dataformats="NHWC",
-                )
-                
-                if len(fwd_flow_cmp_tb) > 0:
+                if args.skip_TB_images:
                     writer.add_images(
-                        "test/fwd_flow_cmp",
-                        torch.stack(fwd_flow_cmp_tb, 0)[..., None],
+                        "test/rgb_maps",
+                        torch.stack(rgb_maps_tb, 0),
+                        global_step=iteration,
+                        dataformats="NHWC",
+                    )
+                    writer.add_images(
+                        "test/depth_map",
+                        torch.stack(depth_maps_tb, 0),
+                        global_step=iteration,
+                        dataformats="NHWC",
+                    )
+                    writer.add_images(
+                        "test/gt_maps",
+                        torch.stack(gt_rgbs_tb, 0),
                         global_step=iteration,
                         dataformats="NHWC",
                     )
                     
-                    writer.add_images(
-                        "test/bwd_flow_cmp",
-                        torch.stack(bwd_flow_cmp_tb, 0)[..., None],
-                        global_step=iteration,
-                        dataformats="NHWC",
-                    )
-                
-                if len(depth_err_tb) > 0:
-                    writer.add_images(
-                        "test/depth_cmp",
-                        torch.stack(depth_err_tb, 0)[..., None],
-                        global_step=iteration,
-                        dataformats="NHWC",
-                    )
+                    if len(fwd_flow_cmp_tb) > 0:
+                        writer.add_images(
+                            "test/fwd_flow_cmp",
+                            torch.stack(fwd_flow_cmp_tb, 0)[..., None],
+                            global_step=iteration,
+                            dataformats="NHWC",
+                        )
+                        
+                        writer.add_images(
+                            "test/bwd_flow_cmp",
+                            torch.stack(bwd_flow_cmp_tb, 0)[..., None],
+                            global_step=iteration,
+                            dataformats="NHWC",
+                        )
+                    
+                    if len(depth_err_tb) > 0:
+                        writer.add_images(
+                            "test/depth_cmp",
+                            torch.stack(depth_err_tb, 0)[..., None],
+                            global_step=iteration,
+                            dataformats="NHWC",
+                        )
 
             with open(f"{logfolder}/checkpoints_tmp.th", "wb") as f:
                 local_tensorfs.save(f)

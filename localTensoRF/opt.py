@@ -167,6 +167,12 @@ def config_parser(cmd=None):
     parser.add_argument("--render_path", type=int, default=1)
     parser.add_argument("--render_from_file", type=str, default="", help="to load camera poses and render from them: https://github.com/facebookresearch/localrf/issues/20")
 
+    ## ------ For saving RAM ------ ##
+    # Set these flags to save your RAM. The final rendered images are still generated and saved.
+    parser.add_argument("--skip_saving_video", action='store_false', help="If set, will not generate rendered video") # default True if not set, will be False if set.
+    parser.add_argument("--skip_TB_images", action='store_false', help="If set, TensorBoard will not show the rendered images.") # default True if not set, will be False if set.
+
+
     # rendering options
     parser.add_argument("--fea2denseAct", type=str, default="softplus")
     parser.add_argument(

@@ -102,7 +102,7 @@ def render_frames(
             train_dataset=train_dataset,
             img_format="jpg",
             save_frames=True,
-            save_video=args.skip_saving_video,
+            save_video=not args.skip_saving_video, # skip_saving_video=True if set; save_video=False to save RAM --> not args.skip_saving_video
             add_frame_to_list=False,
             floater_thresh=0.5,
         )
@@ -125,7 +125,7 @@ def render_frames(
             train_dataset=train_dataset,
             img_format="jpg",
             save_frames=True,
-            save_video=args.skip_saving_video,
+            save_video=not args.skip_saving_video, # skip_saving_video=True if set; save_video=False to save RAM --> not args.skip_saving_video
             add_frame_to_list=False,
             floater_thresh=0.5,
         )
@@ -548,7 +548,7 @@ def reconstruction(args):
                 test=True,
                 train_dataset=train_dataset,
                 start=train_dataset.active_frames_bounds[0],
-                add_frame_to_list=args.skip_TB_images, # default True if not set, will be False if set. 
+                add_frame_to_list= not args.skip_TB_images, # skip_TB_images=True if set; add_frame_to_list=False to save RAM --> not args.skip_TB_images
             )
 
             if len(loc_metrics.values()):
@@ -574,7 +574,7 @@ def reconstruction(args):
                     global_step=iteration
                 )
 
-                if args.skip_TB_images: # default True if not set, will be False if set.
+                if not args.skip_TB_images: # default False if not set, will be True if set. 
                     writer.add_images(
                         "test/rgb_maps",
                         torch.stack(rgb_maps_tb, 0),

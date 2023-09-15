@@ -169,8 +169,8 @@ def config_parser(cmd=None):
 
     ## ------ For saving RAM ------ ##
     # Set these flags to save your RAM. The final rendered images are still generated and saved.
-    parser.add_argument("--skip_saving_video", action='store_false', help="If set, will not generate rendered video") # default True if not set, will be False if set.
-    parser.add_argument("--skip_TB_images", action='store_false', help="If set, TensorBoard will not show the rendered images.") # default True if not set, will be False if set.
+    parser.add_argument("--skip_saving_video", action='store_true', help="If set, will not generate rendered video") # default False if not set, will be True if set.
+    parser.add_argument("--skip_TB_images", action='store_true', help="If set, TensorBoard will not show the rendered images.") # default False if not set, will be True if set.
 
 
     # rendering options

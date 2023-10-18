@@ -55,6 +55,7 @@ class LocalRFDataset(Dataset):
                 pose = np.array(poses_dict[image_path], dtype=np.float32)
                 poses.append(pose)
 
+            self.first_pose = np.array(poses_dict[self.image_paths[0]], dtype=np.float32)
             self.rel_poses = []
             for idx in range(len(poses)):
                 if idx == 0:
@@ -64,8 +65,8 @@ class LocalRFDataset(Dataset):
                 self.rel_poses.append(pose)
             self.rel_poses = np.stack(self.rel_poses, axis=0) 
 
-            scale = 2e-2 / np.median(np.linalg.norm(self.rel_poses[:, :3, 3], axis=-1))
-            self.rel_poses[:, :3, 3] *= scale
+            self.pose_scale = 2e-2 / np.median(np.linalg.norm(self.rel_poses[:, :3, 3], axis=-1))
+            self.rel_poses[:, :3, 3] *= self.pose_scale
             self.rel_poses = self.rel_poses[::frame_step]
 
         else:

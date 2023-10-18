@@ -113,6 +113,15 @@ def render_frames(
         c2ws = [transform["transform_matrix"] for transform in transforms["frames"]]
         c2ws = torch.tensor(c2ws).to(args.device)
         c2ws = c2ws[..., :3, :]
+
+        if args.with_preprocessed_poses:
+            raw2ours = torch.inverse(torch.from_numpy(train_dataset.first_pose)).to(c2ws)
+            for c2w in c2ws:
+               c2w[:3, :3] = raw2ours[:3, :3] @ c2w[:3, :3]
+               c2w[:3, 3] = raw2ours[:3, :3] @ c2w[:3, 3]
+               c2w[:3, 3] = raw2ours[:3, 3] + c2w[:3, 3]
+            c2ws[:, :3, 3] *= train_dataset.pose_scale
+
         save_path = f"{logfolder}/{os.path.splitext(os.path.basename(args.render_from_file))[0]}"
         os.makedirs(save_path, exist_ok=True)
         render(

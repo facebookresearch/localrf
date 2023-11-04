@@ -109,7 +109,7 @@ class LocalTensorfs(torch.nn.Module):
 
         # Setup radiance fields
         self.tensorfs = torch.nn.ParameterList()
-        self.rf_optimizers, self.rf_iter = [], []
+        self.rf_iter = []
         self.world2rf = torch.nn.ParameterList()
         self.append_rf()
 
@@ -143,7 +143,7 @@ class LocalTensorfs(torch.nn.Module):
         grad_vars = self.tensorfs[-1].get_optparam_groups(
             self.rf_lr_init, self.rf_lr_basis
         )
-        self.rf_optimizers.append(torch.optim.Adam(grad_vars, betas=(0.9, 0.99)))
+        self.rf_optimizer = (torch.optim.Adam(grad_vars, betas=(0.9, 0.99)))
    
     def append_frame(self):
         if len(self.r_c2w) == 0:
@@ -237,16 +237,14 @@ class LocalTensorfs(torch.nn.Module):
             self.intrinsic_optimizer.zero_grad()
 
         # tensorfs
-        for optimizer, iteration in zip(self.rf_optimizers, self.rf_iter):
-            if iteration < self.n_iters:
-                optimizer.zero_grad()
+        self.rf_optimizer.zero_grad()
 
         loss.backward()
 
         # Optimize RFs
-        self.rf_optimizers[-1].step()
+        self.rf_optimizer.step()
         if self.is_refining:
-            for param_group in self.rf_optimizers[-1].param_groups:
+            for param_group in self.rf_optimizer.param_groups:
                 param_group["lr"] = param_group["lr"] * self.lr_factor
 
         # Increase RF resolution
@@ -260,10 +258,10 @@ class LocalTensorfs(torch.nn.Module):
                 grad_vars = self.tensorfs[-1].get_optparam_groups(
                     self.rf_lr_init, self.rf_lr_basis
                 )
-                self.rf_optimizers[-1] = torch.optim.Adam(grad_vars, betas=(0.9, 0.99))
+                self.rf_optimizer = torch.optim.Adam(grad_vars, betas=(0.9, 0.99))
 
         # Update alpha mask
-        if iteration in self.update_AlphaMask_list:
+        if self.rf_iter[-1] in self.update_AlphaMask_list:
             reso_mask = (self.tensorfs[-1].gridSize / 2).int()
             self.tensorfs[-1].updateAlphaMask(tuple(reso_mask))
 

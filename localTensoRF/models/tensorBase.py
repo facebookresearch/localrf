@@ -42,7 +42,7 @@ class AlphaGridMask(torch.nn.Module):
 
         self.aabb = torch.nn.Parameter(aabb.to(self.device), requires_grad=False)
         self.aabbSize = self.aabb[1] - self.aabb[0]
-        self.invgridSize = 1.0/self.aabbSize * 2
+        self.invgridSize = torch.nn.Parameter(1.0/self.aabbSize * 2, requires_grad=False)
         self.alpha_volume = torch.nn.Parameter(
             alpha_volume.view(1,1,*alpha_volume.shape[-3:]), requires_grad=False
         )
@@ -56,6 +56,10 @@ class AlphaGridMask(torch.nn.Module):
 
     def normalize_coord(self, xyz_sampled):
         return (xyz_sampled-self.aabb[0]) * self.invgridSize - 1
+    
+    def to(self, device):
+        self.device = torch.device(device)
+        return super(AlphaGridMask, self).to(device)
 
 class MLPRender_Fea(torch.nn.Module):
     def __init__(self, inChanel, viewpe=6, feape=6, featureC=128):
@@ -497,24 +501,25 @@ class TensorBase(torch.nn.Module):
     @torch.no_grad()
     def getDenseAlpha(self,gridSize=None):
         gridSize = self.gridSize if gridSize is None else gridSize
-
-        samples = torch.stack(torch.meshgrid(
+        
+        dense_xyz = torch.stack(torch.meshgrid(
             torch.linspace(0, 1, gridSize[0]),
             torch.linspace(0, 1, gridSize[1]),
             torch.linspace(0, 1, gridSize[2]),
-        ), -1).to(self.device)
-        dense_xyz = self.aabb[0] * (1-samples) + self.aabb[1] * samples
+        ), -1)
+        dense_xyz = self.aabb[0] * (1-dense_xyz) + self.aabb[1] * dense_xyz
 
         alpha = torch.zeros_like(dense_xyz[...,0])
         for i in range(gridSize[0]):
             alpha[i] = self.compute_alpha(dense_xyz[i].view(-1,3), self.stepSize).view((gridSize[1], gridSize[2]))
-        return alpha, dense_xyz
+        return alpha
 
     @torch.no_grad()
     def updateAlphaMask(self, gridSize=(200,200,200)):
         torch.cuda.empty_cache()
-        alpha, dense_xyz = self.getDenseAlpha(gridSize)
-        dense_xyz = dense_xyz.transpose(0,2).contiguous()
+        device = self.device
+        self.to("cpu")
+        alpha = self.getDenseAlpha(gridSize)
         alpha = alpha.clamp(0,1).transpose(0,2).contiguous()[None,None]
         total_voxels = gridSize[0] * gridSize[1] * gridSize[2]
 
@@ -523,8 +528,11 @@ class TensorBase(torch.nn.Module):
         alpha[alpha>=self.alphaMask_thres] = 1
         alpha[alpha<self.alphaMask_thres] = 0
 
-        self.alphaMask = AlphaGridMask(self.device, self.aabb, alpha)
+        self.alphaMask = AlphaGridMask("cpu", self.aabb, alpha)
+        self.alphaMask = self.alphaMask.to(self.device)
         print(f"alpha rest %%%f"%(torch.sum(alpha)/total_voxels*100))
+        torch.cuda.empty_cache()
+        self.to(device)
         torch.cuda.empty_cache()
 
     def compute_alpha(self, xyz_locs, length=1):
@@ -551,6 +559,9 @@ class TensorBase(torch.nn.Module):
 
     def to(self, device):
         self.device = torch.device(device)
+        self.stepSize = self.stepSize.to(device)
+        if self.alphaMask is not None:
+            self.alphaMask = self.alphaMask.to(device)
         return super(TensorBase, self).to(device)
 
     def forward(

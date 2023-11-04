@@ -477,12 +477,12 @@ def reconstruction(args):
 
         writer.add_scalar(
             "train/density_app_plane_lr",
-            local_tensorfs.rf_optimizers[-1].param_groups[0]["lr"],
+            local_tensorfs.rf_optimizer.param_groups[0]["lr"],
             global_step=iteration,
         )
         writer.add_scalar(
             "train/basis_mat_lr",
-            local_tensorfs.rf_optimizers[-1].param_groups[4]["lr"],
+            local_tensorfs.rf_optimizer.param_groups[4]["lr"],
             global_step=iteration,
         )
 

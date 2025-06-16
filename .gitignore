@@ -145,3 +145,10 @@ comparison/FuSta/raft_models/raft-kitti.pth
 comparison/FuSta/raft_models/raft-sintel.pth
 comparison/FuSta/raft_models/raft-small.pth
 comparison/FuSta/raft_models/raft-things.pth
+
+# Claude settings
+.claude/*
+
+# Additional testing artifacts
+test-results/
+.test_cache/
